@@ -7,16 +7,16 @@ import os
 load_dotenv(dotenv_path=r'C:\Projekte\AUTDOC\.env')
 
 # Variablen aus der .env-Datei lesen
-ldap_server = "ldap://ldap.fh-giessen.de"  # Verwende ldap:// für unverschlüsselte Verbindung
+ldap_server = "ldap://ldap.fh-giessen.de"  # ldap:// für unverschlüsselte Verbindung
 ldap_user_dn = os.getenv("LDAP_USER_DN")
 ldap_password = os.getenv("LDAP_PASSWORD")
 search_base = "dc=fh-giessen-friedberg,dc=de"  # Basis-DN für die Suche
-search_filter = "(cn=Katharina Sieben)"  # Filter nur für den gewünschten CN
+search_filter = "(cn=Lucas Kaczmarczyk)"  # Filter nur für den gewünschten CN
 
 # Debug-Ausgabe
 print("Verbindung zum LDAP-Server herstellen mit:")
 print("LDAP_USER_DN:", ldap_user_dn)
-print("LDAP_PASSWORD:", "******")  # Passwort aus Sicherheitsgründen nicht anzeigen
+#print("LDAP_PASSWORD:", "******")  # Passwort aus Sicherheitsgründen nicht anzeigen
 
 # StartTLS hinzufügen für Verschlüsselung auf ldap://
 tls_config = Tls(validate=ssl.CERT_NONE)

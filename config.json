@@ -1,0 +1,15 @@
+{
+    "text_fields": {
+        "displayName": {
+            "text": "Lucas Kaczmarczyk",
+            "x": 300,
+            "y": 620
+        }
+    },
+    "signature_field": {
+        "x": 139,
+        "y": 320,
+        "width": 100,
+        "height": 50
+    }
+}
