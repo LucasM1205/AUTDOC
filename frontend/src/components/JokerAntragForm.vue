@@ -4,8 +4,6 @@
 
     <!-- Grunddaten Container mit Toggle -->
     <div class="grunddaten-container">
-      <!-- <h2>Grunddaten</h2> -->
-
       <!-- Toggle zur automatischen Übernahme der Grunddaten -->
       <div class="form-group">
         <label>
@@ -73,7 +71,6 @@
 
     <!-- Weiterführende Daten Container -->
     <div class="weiterfuehrende-daten-container">
-      <!-- <h2>Weiterführende Daten</h2> -->
       <form @submit.prevent="handleSubmit">
         <div class="form-group">
           <label for="fach">Fach</label>
@@ -144,11 +141,53 @@ export default {
     };
   },
   methods: {
-    handleSubmit() {
-      console.log("Formular abgesendet mit den Daten:", {
-        grunddaten: this.grunddaten,
-        weiterfuehrendeDaten: this.weiterfuehrendeDaten
-      });
+    async handleSubmit() {
+      try {
+        const requestData = {
+          vorname: this.grunddaten.vorname,
+          nachname: this.grunddaten.nachname,
+          matrikelnummer: this.grunddaten.matrikelnummer,
+          fachbereich: this.grunddaten.fachbereich,
+          bachelorstudiengang: this.grunddaten.bachelorstudiengang,
+          fach: this.weiterfuehrendeDaten.fach,
+          pruefungsnummer: this.weiterfuehrendeDaten.pruefungsnummer,
+          fachbereich_modul: this.weiterfuehrendeDaten.fachbereichModul,
+          pruefer: this.weiterfuehrendeDaten.pruefer,
+          joker_status: this.weiterfuehrendeDaten.jokerStatus,
+          doppelstudium_bachelor: this.weiterfuehrendeDaten.doppelstudiumBachelor || "",
+        };
+
+        console.log("Gesendete Daten:", requestData);
+
+        const response = await fetch("http://127.0.0.1:8000/generate-pdf", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(requestData)
+        });
+
+        if (!response.ok) {
+          console.error(`Fehlerstatus: ${response.status}`);
+          const errorDetails = await response.json();
+          console.error("Fehlerdetails:", errorDetails);
+          throw new Error(`Fehler beim Erstellen der PDF-Datei: ${errorDetails.detail || 'Unbekannter Fehler'}`);
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", "joker_antrag_ausgefuellt.pdf");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        console.log("PDF erfolgreich generiert und heruntergeladen!");
+      } catch (error) {
+        console.error("Fehler:", error.message);
+      }
     },
     goBack() {
       this.$router.push({ name: 'form-selector' });
