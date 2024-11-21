@@ -4,7 +4,7 @@
 
     <!-- Grunddaten Container mit Toggle -->
     <div class="grunddaten-container">
-      <h2>Grunddaten</h2>
+      <!-- <h2>Grunddaten</h2> -->
 
       <!-- Toggle zur automatischen Übernahme der Grunddaten -->
       <div class="form-group">
@@ -73,7 +73,7 @@
 
     <!-- Weiterführende Daten Container -->
     <div class="weiterfuehrende-daten-container">
-      <h2>Weiterführende Daten</h2>
+      <!-- <h2>Weiterführende Daten</h2> -->
       <form @submit.prevent="handleSubmit">
         <div class="form-group">
           <label for="fach">Fach</label>
@@ -125,7 +125,7 @@
 export default {
   data() {
     return {
-      autoFillGrunddaten: false, // Toggle für die automatische Übernahme der Grunddaten
+      autoFillGrunddaten: false,
       grunddaten: {
         vorname: '',
         nachname: '',
@@ -151,7 +151,7 @@ export default {
       });
     },
     goBack() {
-      this.$router.push({ name: 'form-selector' }); // Navigation zurück zur FormSelector-Seite
+      this.$router.push({ name: 'form-selector' });
     },
     checkDoppelstudium() {
       if (this.weiterfuehrendeDaten.jokerStatus !== 'doppelstudium') {
