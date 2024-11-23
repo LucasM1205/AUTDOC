@@ -14,56 +14,67 @@
       <form>
         <div class="form-group">
           <label for="vorname">Vorname</label>
-          <input 
-            type="text" 
-            id="vorname" 
-            v-model="grunddaten.vorname" 
-            :disabled="autoFillGrunddaten" 
-            placeholder="Vorname eingeben" 
+          <input
+            type="text"
+            id="vorname"
+            v-model="grunddaten.vorname"
+            :disabled="autoFillGrunddaten"
+            placeholder="Vorname eingeben"
           />
         </div>
 
         <div class="form-group">
           <label for="nachname">Nachname</label>
-          <input 
-            type="text" 
-            id="nachname" 
-            v-model="grunddaten.nachname" 
-            :disabled="autoFillGrunddaten" 
-            placeholder="Nachname eingeben" 
+          <input
+            type="text"
+            id="nachname"
+            v-model="grunddaten.nachname"
+            :disabled="autoFillGrunddaten"
+            placeholder="Nachname eingeben"
           />
         </div>
 
         <div class="form-group">
           <label for="matrikelnummer">Matrikelnummer</label>
-          <input 
-            type="text" 
-            id="matrikelnummer" 
-            v-model="grunddaten.matrikelnummer" 
-            :disabled="autoFillGrunddaten" 
-            placeholder="Matrikelnummer eingeben" 
+          <input
+            type="text"
+            id="matrikelnummer"
+            v-model="grunddaten.matrikelnummer"
+            :disabled="autoFillGrunddaten"
+            placeholder="Matrikelnummer eingeben"
           />
         </div>
 
         <div class="form-group">
           <label for="fachbereich">Fachbereich</label>
-          <input 
-            type="text" 
-            id="fachbereich" 
-            v-model="grunddaten.fachbereich" 
-            :disabled="autoFillGrunddaten" 
-            placeholder="Fachbereich eingeben" 
+          <input
+            type="text"
+            id="fachbereich"
+            v-model="grunddaten.fachbereich"
+            :disabled="autoFillGrunddaten"
+            placeholder="Fachbereich eingeben"
           />
         </div>
 
         <div class="form-group">
           <label for="bachelorstudiengang">Bachelorstudiengang</label>
-          <input 
-            type="text" 
-            id="bachelorstudiengang" 
-            v-model="grunddaten.bachelorstudiengang" 
-            :disabled="autoFillGrunddaten" 
-            placeholder="Bachelorstudiengang eingeben" 
+          <input
+            type="text"
+            id="bachelorstudiengang"
+            v-model="grunddaten.bachelorstudiengang"
+            :disabled="autoFillGrunddaten"
+            placeholder="Bachelorstudiengang eingeben"
+          />
+        </div>
+
+        <!-- Unterschrift-Upload -->
+        <div class="form-group">
+          <label for="unterschrift">Unterschrift hochladen</label>
+          <input
+            type="file"
+            id="unterschrift"
+            @change="handleFileUpload"
+            accept="image/png"
           />
         </div>
       </form>
@@ -79,17 +90,32 @@
 
         <div class="form-group">
           <label for="pruefungsnummer">Prüfungsnummer</label>
-          <input type="text" id="pruefungsnummer" v-model="weiterfuehrendeDaten.pruefungsnummer" placeholder="Prüfungsnummer eingeben" />
+          <input
+            type="text"
+            id="pruefungsnummer"
+            v-model="weiterfuehrendeDaten.pruefungsnummer"
+            placeholder="Prüfungsnummer eingeben"
+          />
         </div>
 
         <div class="form-group">
           <label for="fachbereichModul">Fachbereich des Moduls</label>
-          <input type="text" id="fachbereichModul" v-model="weiterfuehrendeDaten.fachbereichModul" placeholder="Fachbereich des Moduls eingeben" />
+          <input
+            type="text"
+            id="fachbereichModul"
+            v-model="weiterfuehrendeDaten.fachbereichModul"
+            placeholder="Fachbereich des Moduls eingeben"
+          />
         </div>
 
         <div class="form-group">
           <label for="pruefer">Prüfer</label>
-          <input type="text" id="pruefer" v-model="weiterfuehrendeDaten.pruefer" placeholder="Prüfer eingeben" />
+          <input
+            type="text"
+            id="pruefer"
+            v-model="weiterfuehrendeDaten.pruefer"
+            placeholder="Prüfer eingeben"
+          />
         </div>
 
         <div class="form-group">
@@ -105,7 +131,12 @@
         <!-- Zusätzliche Eingabe für Bachelorstudiengang bei Doppelstudium -->
         <div v-if="weiterfuehrendeDaten.jokerStatus === 'doppelstudium'" class="form-group">
           <label for="doppelstudiumBachelor">Bachelorstudiengang</label>
-          <input type="text" id="doppelstudiumBachelor" v-model="weiterfuehrendeDaten.doppelstudiumBachelor" placeholder="Bachelorstudiengang eingeben" />
+          <input
+            type="text"
+            id="doppelstudiumBachelor"
+            v-model="weiterfuehrendeDaten.doppelstudiumBachelor"
+            placeholder="Bachelorstudiengang eingeben"
+          />
         </div>
 
         <!-- Button-Gruppe für Zurück und Speichern -->
@@ -128,7 +159,8 @@ export default {
         nachname: '',
         matrikelnummer: '',
         fachbereich: '',
-        bachelorstudiengang: ''
+        bachelorstudiengang: '',
+        unterschrift: null, // Unterschrift als Datei
       },
       weiterfuehrendeDaten: {
         fach: '',
@@ -136,57 +168,57 @@ export default {
         fachbereichModul: '',
         pruefer: '',
         jokerStatus: '',
-        doppelstudiumBachelor: ''
-      }
+        doppelstudiumBachelor: '',
+      },
     };
   },
   methods: {
+    handleFileUpload(event) {
+      this.grunddaten.unterschrift = event.target.files[0];
+      console.log('Unterschrift hochgeladen:', this.grunddaten.unterschrift);
+    },
     async handleSubmit() {
       try {
-        const requestData = {
-          vorname: this.grunddaten.vorname,
-          nachname: this.grunddaten.nachname,
-          matrikelnummer: this.grunddaten.matrikelnummer,
-          fachbereich: this.grunddaten.fachbereich,
-          bachelorstudiengang: this.grunddaten.bachelorstudiengang,
-          fach: this.weiterfuehrendeDaten.fach,
-          pruefungsnummer: this.weiterfuehrendeDaten.pruefungsnummer,
-          fachbereich_modul: this.weiterfuehrendeDaten.fachbereichModul,
-          pruefer: this.weiterfuehrendeDaten.pruefer,
-          joker_status: this.weiterfuehrendeDaten.jokerStatus,
-          doppelstudium_bachelor: this.weiterfuehrendeDaten.doppelstudiumBachelor || "",
-        };
+        const formData = new FormData();
+        formData.append('vorname', this.grunddaten.vorname);
+        formData.append('nachname', this.grunddaten.nachname);
+        formData.append('matrikelnummer', this.grunddaten.matrikelnummer);
+        formData.append('fachbereich', this.grunddaten.fachbereich);
+        formData.append('bachelorstudiengang', this.grunddaten.bachelorstudiengang);
+        formData.append('unterschrift', this.grunddaten.unterschrift);
+        formData.append('fach', this.weiterfuehrendeDaten.fach);
+        formData.append('pruefungsnummer', this.weiterfuehrendeDaten.pruefungsnummer);
+        formData.append('fachbereich_modul', this.weiterfuehrendeDaten.fachbereichModul);
+        formData.append('pruefer', this.weiterfuehrendeDaten.pruefer);
+        formData.append('joker_status', this.weiterfuehrendeDaten.jokerStatus);
+        formData.append('doppelstudium_bachelor', this.weiterfuehrendeDaten.doppelstudiumBachelor || '');
 
-        console.log("Gesendete Daten:", requestData);
+        console.log('Gesendete Daten:', formData);
 
-        const response = await fetch("http://127.0.0.1:8000/generate-pdf", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify(requestData)
+        const response = await fetch('http://127.0.0.1:8000/generate-pdf', {
+          method: 'POST',
+          body: formData,
         });
 
         if (!response.ok) {
-          console.error(`Fehlerstatus: ${response.status}`);
           const errorDetails = await response.json();
-          console.error("Fehlerdetails:", errorDetails);
-          throw new Error(`Fehler beim Erstellen der PDF-Datei: ${errorDetails.detail || 'Unbekannter Fehler'}`);
+          console.error('Fehlerdetails:', errorDetails);
+          throw new Error(`Fehler beim Erstellen der PDF-Datei: ${errorDetails.detail}`);
         }
 
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
 
-        const link = document.createElement("a");
+        const link = document.createElement('a');
         link.href = url;
-        link.setAttribute("download", "joker_antrag_ausgefuellt.pdf");
+        link.setAttribute('download', 'joker_antrag_ausgefuellt.pdf');
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
 
-        console.log("PDF erfolgreich generiert und heruntergeladen!");
+        console.log('PDF erfolgreich generiert und heruntergeladen!');
       } catch (error) {
-        console.error("Fehler:", error.message);
+        console.error('Fehler:', error.message);
       }
     },
     goBack() {
@@ -196,12 +228,13 @@ export default {
       if (this.weiterfuehrendeDaten.jokerStatus !== 'doppelstudium') {
         this.weiterfuehrendeDaten.doppelstudiumBachelor = '';
       }
-    }
-  }
+    },
+  },
 };
 </script>
 
 <style scoped>
+/* CSS bleibt unverändert */
 .form-container {
   max-width: 800px;
   margin: auto;
@@ -232,8 +265,9 @@ label {
   margin-bottom: 5px;
 }
 
-input[type="text"],
-select {
+input[type='text'],
+select,
+input[type='file'] {
   width: 100%;
   padding: 8px;
   border: 1px solid #ccc;

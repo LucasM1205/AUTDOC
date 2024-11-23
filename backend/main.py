@@ -1,13 +1,13 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, Form
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 from PyPDF2 import PdfReader, PdfWriter
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from io import BytesIO
 import os
 import json
+from datetime import datetime
 
 # FastAPI-Anwendung erstellen
 app = FastAPI()
@@ -21,20 +21,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Datenmodell für Nutzerdaten
-class JokerAntragData(BaseModel):
-    vorname: str
-    nachname: str
-    matrikelnummer: str
-    fachbereich: str
-    bachelorstudiengang: str
-    fach: str
-    pruefungsnummer: str
-    fachbereich_modul: str
-    pruefer: str
-    joker_status: str
-    doppelstudium_bachelor: str = None
-
 # Lade Konfiguration
 def load_field_config():
     config_path = "assets/JokerAntrag_field_config.json"
@@ -45,7 +31,20 @@ def load_field_config():
 
 # PDF-Generierungs-Endpunkt
 @app.post("/generate-pdf")
-async def generate_pdf(data: JokerAntragData):
+async def generate_pdf(
+    vorname: str = Form(...),
+    nachname: str = Form(...),
+    matrikelnummer: str = Form(...),
+    fachbereich: str = Form(...),
+    bachelorstudiengang: str = Form(...),
+    fach: str = Form(...),
+    pruefungsnummer: str = Form(...),
+    fachbereich_modul: str = Form(...),
+    pruefer: str = Form(...),
+    joker_status: str = Form(...),
+    doppelstudium_bachelor: str = Form(None),
+    unterschrift: UploadFile = None
+):
     try:
         # Feldkonfiguration laden
         field_config = load_field_config()
@@ -58,6 +57,12 @@ async def generate_pdf(data: JokerAntragData):
         reader = PdfReader(input_pdf_path)
         writer = PdfWriter()
 
+        # Datum hinzufügen
+        aktuelles_datum = datetime.now().strftime("%d.%m.%Y")
+
+        # Temporäre Datei für die Unterschrift
+        temp_signature_path = None
+
         for page_num, page in enumerate(reader.pages):
             packet = BytesIO()
             overlay_canvas = canvas.Canvas(packet, pagesize=letter)
@@ -65,9 +70,40 @@ async def generate_pdf(data: JokerAntragData):
             # Text hinzufügen (nur auf der ersten Seite)
             if page_num == 0:
                 for field, position in field_config.items():
-                    value = getattr(data, field, None)
-                    if value:  # Nur Felder mit Daten drucken
-                        overlay_canvas.drawString(position["x"], position["y"], str(value))
+                    if field == "unterschrift" and unterschrift:
+                        # Unterschrift als Bild einfügen
+                        unterschrift_position = field_config.get("unterschrift")
+                        if unterschrift_position:
+                            unterschrift_data = await unterschrift.read()
+                            temp_signature_path = "temp_signature.png"
+                            
+                            # Temporäre Datei speichern
+                            with open(temp_signature_path, "wb") as temp_file:
+                                temp_file.write(unterschrift_data)
+                            
+                            # Unterschrift ins PDF einfügen
+                            overlay_canvas.drawImage(
+                                temp_signature_path,
+                                unterschrift_position["x"],
+                                unterschrift_position["y"],
+                                width=unterschrift_position.get("width", 100),
+                                height=unterschrift_position.get("height", 50),
+                                preserveAspectRatio=True,
+                                mask="auto"
+                            )
+                    elif field == "datum":
+                        # Datum hinzufügen
+                        datum_position = position
+                        overlay_canvas.drawString(
+                            datum_position["x"], datum_position["y"], aktuelles_datum
+                        )
+                    else:
+                        # Andere Felder
+                        value = locals().get(field, None)
+                        if value:
+                            overlay_canvas.drawString(
+                                position["x"], position["y"], str(value)
+                            )
 
             # Overlay abschließen
             overlay_canvas.save()
@@ -84,6 +120,10 @@ async def generate_pdf(data: JokerAntragData):
         # Ergebnis speichern
         with open(output_pdf_path, "wb") as output_file:
             writer.write(output_file)
+
+        # Temporäre Datei löschen, falls vorhanden
+        if temp_signature_path and os.path.exists(temp_signature_path):
+            os.remove(temp_signature_path)
 
         # PDF als Antwort zurückgeben
         return FileResponse(
