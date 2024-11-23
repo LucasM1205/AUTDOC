@@ -8,6 +8,7 @@ from io import BytesIO
 import os
 import json
 from datetime import datetime
+from fastapi.responses import StreamingResponse
 
 # FastAPI-Anwendung erstellen
 app = FastAPI()
@@ -138,3 +139,83 @@ async def generate_pdf(
     except Exception as e:
         print("Fehler beim Erstellen des PDFs:", e)
         raise HTTPException(status_code=500, detail=str(e))
+    
+@app.post("/preview-pdf")
+async def preview_pdf(
+    vorname: str = Form(...),
+    nachname: str = Form(...),
+    matrikelnummer: str = Form(...),
+    fachbereich: str = Form(...),
+    bachelorstudiengang: str = Form(...),
+    fach: str = Form(...),
+    pruefungsnummer: str = Form(...),
+    fachbereich_modul: str = Form(...),
+    pruefer: str = Form(...),
+    joker_status: str = Form(...),
+    doppelstudium_bachelor: str = Form(None),
+    unterschrift: UploadFile = None
+):
+    try:
+        # Pfad für die temporäre Vorschau-PDF
+        temp_pdf_path = "temp_preview_joker_antrag.pdf"
+        field_config = load_field_config()
+
+        input_pdf_path = "assets/JokerAntragTemplate.pdf"
+
+        # PDF-Reader und -Writer initialisieren
+        reader = PdfReader(input_pdf_path)
+        writer = PdfWriter()
+        aktuelles_datum = datetime.now().strftime("%d.%m.%Y")
+
+        for page_num, page in enumerate(reader.pages):
+            packet = BytesIO()
+            overlay_canvas = canvas.Canvas(packet, pagesize=letter)
+
+            if page_num == 0:
+                for field, position in field_config.items():
+                    if field == "unterschrift" and unterschrift:
+                        # Unterschrift einfügen
+                        unterschrift_data = await unterschrift.read()
+                        temp_signature_path = "temp_signature.png"
+                        with open(temp_signature_path, "wb") as temp_file:
+                            temp_file.write(unterschrift_data)
+                        overlay_canvas.drawImage(
+                            temp_signature_path,
+                            position["x"],
+                            position["y"],
+                            width=position.get("width", 100),
+                            height=position.get("height", 50),
+                            preserveAspectRatio=True,
+                            mask="auto"
+                        )
+                        os.remove(temp_signature_path)
+                    elif field == "datum":
+                        # Datum hinzufügen
+                        overlay_canvas.drawString(position["x"], position["y"], aktuelles_datum)
+                    else:
+                        # Andere Felder aus den Parametern einfügen
+                        value = locals().get(field, None)
+                        if value:
+                            overlay_canvas.drawString(position["x"], position["y"], str(value))
+
+            overlay_canvas.save()
+            packet.seek(0)
+            overlay_pdf = PdfReader(packet)
+            overlay_page = overlay_pdf.pages[0]
+            page.merge_page(overlay_page)
+            writer.add_page(page)
+
+        # PDF schreiben
+        with open(temp_pdf_path, "wb") as temp_output_file:
+            writer.write(temp_output_file)
+
+        # Rückgabe der Vorschau-PDF
+        return StreamingResponse(
+            open(temp_pdf_path, "rb"),
+            media_type="application/pdf",
+            headers={"Content-Disposition": "inline; filename=temp_preview_joker_antrag.pdf"}
+        )
+
+    except Exception as e:
+        print("Fehler bei der Vorschau:", e)
+        raise HTTPException(status_code=500, detail="Fehler beim Erstellen der Vorschau")

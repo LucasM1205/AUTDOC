@@ -139,12 +139,21 @@
           />
         </div>
 
-        <!-- Button-Gruppe für Zurück und Speichern -->
+        <!-- Button-Gruppe für Zurück, Vorschau und Speichern -->
         <div class="button-group">
           <button type="button" @click="goBack">Zurück</button>
+          <button type="button" @click="previewPDF">Vorschau</button>
           <button type="submit">Speichern</button>
         </div>
       </form>
+    </div>
+
+    <!-- Vorschau-Modal -->
+    <div v-if="showPreview" class="preview-modal">
+      <div class="preview-container">
+        <button @click="closePreview">Schließen</button>
+        <iframe id="pdf-preview" :src="previewUrl" frameborder="0" style="width: 100%; height: 500px;"></iframe>
+      </div>
     </div>
   </div>
 </template>
@@ -154,13 +163,15 @@ export default {
   data() {
     return {
       autoFillGrunddaten: false,
+      showPreview: false,
+      previewUrl: "", // Vorschau-URL für das iframe
       grunddaten: {
         vorname: '',
         nachname: '',
         matrikelnummer: '',
         fachbereich: '',
         bachelorstudiengang: '',
-        unterschrift: null, // Unterschrift als Datei
+        unterschrift: null,
       },
       weiterfuehrendeDaten: {
         fach: '',
@@ -177,7 +188,7 @@ export default {
       this.grunddaten.unterschrift = event.target.files[0];
       console.log('Unterschrift hochgeladen:', this.grunddaten.unterschrift);
     },
-    async handleSubmit() {
+    async previewPDF() {
       try {
         const formData = new FormData();
         formData.append('vorname', this.grunddaten.vorname);
@@ -193,7 +204,40 @@ export default {
         formData.append('joker_status', this.weiterfuehrendeDaten.jokerStatus);
         formData.append('doppelstudium_bachelor', this.weiterfuehrendeDaten.doppelstudiumBachelor || '');
 
-        console.log('Gesendete Daten:', formData);
+        const response = await fetch('http://127.0.0.1:8000/preview-pdf', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) throw new Error('Fehler bei der Vorschau');
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        this.previewUrl = url;
+        this.showPreview = true;
+      } catch (error) {
+        console.error('Fehler bei der Vorschau:', error);
+      }
+    },
+    closePreview() {
+      this.showPreview = false;
+      this.previewUrl = "";
+    },
+    async handleSubmit() {
+      try {
+        const formData = new FormData();
+        formData.append('vorname', this.grunddaten.vorname);
+        formData.append('nachname', this.grunddaten.nachname);
+        formData.append('matrikelnummer', this.grunddaten.matrikelnummer);
+        formData.append('fachbereich', this.grunddaten.fachbereich);
+        formData.append('bachelorstudiengang', this.grunddaten.bachelorstudiengang);
+        formData.append('unterschrift', this.grunddaten.unterschrift);
+        formData.append('fach', this.weiterfuehrendeDaten.fach);
+        formData.append('pruefungsnummer', this.weiterfuehrendeDaten.pruefungsnummer);
+        formData.append('fachbereich_modul', this.weiterfuehrendeDaten.fachbereichModul);
+        formData.append('pruefer', this.weiterfuehrendeDaten.pruefer);
+        formData.append('joker_status', this.weiterfuehrendeDaten.jokerStatus);
+        formData.append('doppelstudium_bachelor', this.weiterfuehrendeDaten.doppelstudiumBachelor || '');
 
         const response = await fetch('http://127.0.0.1:8000/generate-pdf', {
           method: 'POST',
@@ -234,7 +278,6 @@ export default {
 </script>
 
 <style scoped>
-/* CSS bleibt unverändert */
 .form-container {
   max-width: 800px;
   margin: auto;
@@ -296,5 +339,30 @@ button:hover {
 button:disabled {
   background-color: #ccc;
   cursor: not-allowed;
+}
+
+.preview-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.preview-container {
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  max-width: 80%;
+  max-height: 80%;
+  overflow: auto;
+}
+
+iframe {
+  border: none;
 }
 </style>
