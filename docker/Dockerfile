@@ -13,6 +13,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Kopiere den gesamten Backend-Code
 COPY ../backend /app
 
+# Kopiere die Alembic-Konfiguration und Migrations
+COPY ../alembic.ini /app/alembic.ini
+COPY ../migrations /app/migrations
+
 # Öffne den Port 8000
 EXPOSE 8000
 

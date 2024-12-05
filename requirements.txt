@@ -3,3 +3,6 @@ uvicorn==0.22.0
 PyPDF2==3.0.0
 reportlab==3.6.12
 python-multipart==0.0.6
+alembic==1.11.1
+python-dotenv
+psycopg2-binary
