@@ -1,15 +1,16 @@
+import sys
+import os
 from logging.config import fileConfig
+
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 from alembic import context
-import sys
-import os
 
-# Pfad zum Projektverzeichnis hinzufügen
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'backend')))
+# Backend-Verzeichnis zu sys.path hinzufügen
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../backend")))
 
 # Importiere Base und die Datenbank-URL
-from database import Base, SQLALCHEMY_DATABASE_URL
+from backend.database import Base, SQLALCHEMY_DATABASE_URL
 
 # Alembic-Konfiguration
 config = context.config
@@ -37,7 +38,6 @@ def run_migrations_offline() -> None:
     with context.begin_transaction():
         context.run_migrations()
 
-
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
     connectable = engine_from_config(
@@ -51,7 +51,6 @@ def run_migrations_online() -> None:
 
         with context.begin_transaction():
             context.run_migrations()
-
 
 if context.is_offline_mode():
     run_migrations_offline()
