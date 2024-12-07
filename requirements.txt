@@ -6,3 +6,6 @@ python-multipart==0.0.6
 alembic==1.11.1
 python-dotenv
 psycopg2-binary
+werkzeug==2.3.6
+python-jose==3.3.0
+

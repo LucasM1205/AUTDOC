@@ -1,0 +1,20 @@
+{
+  "vorname": { "x": 150, "y": 650 },
+  "nachname": { "x": 56, "y": 650 },
+  "matrikelnummer": { "x": 402, "y": 650 },
+  "fachbereich": { "x": 56, "y": 610 },
+  "bachelorstudiengang": { "x": 56, "y": 572 },
+  "fach": { "x": 56, "y": 502 },
+  "pruefungsnummer": { "x": 112, "y": 502 },
+  "fachbereich_modul": { "x": 56, "y": 462 },
+  "pruefer": { "x": 310, "y": 462 },
+  "joker_status": { "x": 405, "y": 320 },
+  "doppelstudium_bachelor": { "x": 100, "y": 500 },
+  "datum": { "x": 56, "y": 285 },
+  "unterschrift": {
+    "x": 290,
+    "y": 285,
+    "width": 100,
+    "height": 25
+  }
+}

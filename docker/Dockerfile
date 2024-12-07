@@ -17,8 +17,11 @@ COPY ./backend /app/backend
 COPY ./alembic.ini /app/alembic.ini
 COPY ./migrations /app/migrations
 
-# Setze den PYTHONPATH, damit "backend" erkannt wird
+# Setze den PYTHONPATH, damit das Modul backend erkannt wird
 ENV PYTHONPATH=/app
+
+# Sicherstellen, dass das Modul backend korrekt importiert wird
+ENV MODULE_NAME=backend.main:app
 
 # Öffne den Port 8000
 EXPOSE 8000
