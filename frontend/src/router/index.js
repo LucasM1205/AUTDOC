@@ -1,20 +1,69 @@
 import { createRouter, createWebHistory } from 'vue-router';
+import Dashboard from '../components/Dashboard.vue';
 import LoginForm from '../components/LoginForm.vue';
 import FormSelector from '../components/FormSelector.vue';
 import JokerAntragForm from '../components/JokerAntragForm.vue';
 
 const routes = [
-  { path: '/', name: 'login', component: LoginForm }, // LoginForm als neue Startseite
-  { path: '/form-selector', name: 'form-selector', component: FormSelector },
-  { path: '/joker', name: 'joker', component: JokerAntragForm },
-  { path: '/bpp', name: 'bpp', component: () => import('../components/BppForm.vue') },
-  { path: '/abschlussarbeit', name: 'abschlussarbeit', component: () => import('../components/AbschlussarbeitForm.vue') },
-  { path: '/verlaengerung', name: 'verlaengerung', component: () => import('../components/VerlaengerungForm.vue') }
+  { 
+    path: '/', 
+    name: 'dashboard', 
+    component: Dashboard 
+  }, 
+  { 
+    path: '/login', 
+    name: 'login', 
+    component: LoginForm 
+  }, 
+  { 
+    path: '/form-selector', 
+    name: 'form-selector', 
+    component: FormSelector 
+  },
+  {
+    path: '/joker',
+    name: 'joker',
+    component: JokerAntragForm,
+  },
+  {
+    path: '/bpp',
+    name: 'bpp',
+    component: () => import('../components/BppForm.vue'),
+  },
+  {
+    path: '/abschlussarbeit',
+    name: 'abschlussarbeit',
+    component: () => import('../components/AbschlussarbeitForm.vue'),
+  },
+  {
+    path: '/verlaengerung',
+    name: 'verlaengerung',
+    component: () => import('../components/VerlaengerungForm.vue'),
+  },
 ];
 
 const router = createRouter({
   history: createWebHistory(),
-  routes
+  routes,
 });
+
+// Session-Initialisierung
+if (!localStorage.getItem('session_initialized')) {
+  localStorage.removeItem('access_token'); // Token löschen
+  localStorage.setItem('session_initialized', 'true'); // Neue Session setzen
+}
+
+router.beforeEach((to, from, next) => {
+  const token = localStorage.getItem("access_token");
+
+  if (!token && to.name !== "login") {
+    next({ name: "login" }); // Weiterleitung zur Login-Seite
+  } else if (token && to.name === "login") {
+    next({ name: "dashboard" }); // Weiterleitung zum Dashboard
+  } else {
+    next(); // Fortfahren
+  }
+});
+
 
 export default router;

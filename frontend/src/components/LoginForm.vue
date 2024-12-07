@@ -70,8 +70,8 @@
           // Token im localStorage speichern
           localStorage.setItem("access_token", data.access_token);
   
-          // Weiterleitung nach erfolgreicher Anmeldung
-          this.$router.push({ name: "form-selector" });
+          // Weiterleitung nach erfolgreicher Anmeldung zum Dashboard
+          this.$router.push({ name: "dashboard" });
         } catch (error) {
           console.error("Fehler:", error);
           this.errorMessage = error.message || "Anmeldung fehlgeschlagen.";
@@ -80,7 +80,6 @@
     },
   };
   </script>
-  
   
   <style scoped>
   .login-container {

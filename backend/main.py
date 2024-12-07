@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, UploadFile, Form, Depends
+from fastapi import FastAPI, HTTPException, UploadFile, Form, Depends, Header
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from PyPDF2 import PdfReader, PdfWriter
@@ -7,11 +7,22 @@ from reportlab.lib.pagesizes import letter
 from io import BytesIO
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy.orm import Session, joinedload
 from backend.database import SessionLocal
 from backend.models import JokerAntrag, FachbereichSekretariat, Pruefungsausschuss, Student, DokumentenMetadaten, Benutzer
 from backend.auth import authenticate_user, create_access_token
+from dotenv import load_dotenv
+from jose import jwt, JWTError
+from backend.auth import get_current_user
+
+
+# .env-Datei laden
+load_dotenv()
+
+# Globale Konfiguration
+SECRET_KEY = os.getenv("SECRET_KEY", "fallback_key_fuer_dev")  # Fallback für lokale Entwicklung
+ALGORITHM = "HS256"
 
 # FastAPI-Anwendung erstellen
 app = FastAPI()
@@ -41,7 +52,15 @@ def load_field_config():
     with open(config_path, "r") as file:
         return json.load(file)
 
-# Endpunkt für die Anmeldung
+ACCESS_TOKEN_EXPIRE_MINUTES = 60  # Lebensdauer des Tokens (in Minuten)
+
+def create_access_token(data: dict):
+    to_encode = data.copy()
+    expire = datetime.now() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
 @app.post("/token")
 async def login_for_access_token(
     email: str = Form(...),
@@ -52,10 +71,11 @@ async def login_for_access_token(
     if not user:
         raise HTTPException(status_code=401, detail="Ungültige Anmeldedaten")
 
-    access_token = create_access_token(data={"sub": user.email, "role": user.rolle})
+    access_token = create_access_token(
+        data={"sub": user.email, "role": user.rolle}
+    )
     return {"access_token": access_token, "token_type": "bearer"}
 
-# Endpunkt zur PDF-Generierung
 @app.post("/generate-pdf")
 async def generate_pdf(
     vorname: str = Form(...),
@@ -69,24 +89,43 @@ async def generate_pdf(
     pruefer: str = Form(...),
     joker_status: str = Form(...),
     doppelstudium_bachelor: str = Form(None),
-    unterschrift: UploadFile = None
+    unterschrift: UploadFile = None,
+    authorization: str = Header(...),  # Token direkt aus den Headers
+    db: Session = Depends(get_db)
 ):
-    session: Session = SessionLocal()
     try:
-        field_config = load_field_config()
+        # Debug: Eingangsdaten prüfen
+        print("Eingehende Daten für generate_pdf:")
+        print(f"Vorname: {vorname}, Nachname: {nachname}, Matrikelnummer: {matrikelnummer}")
+        print(f"Fachbereich: {fachbereich}, Bachelorstudiengang: {bachelorstudiengang}")
+        print(f"Fach: {fach}, Prüfungsnummer: {pruefungsnummer}, Fachbereich Modul: {fachbereich_modul}")
+        print(f"Prüfer: {pruefer}, Joker-Status: {joker_status}, Doppelstudium Bachelor: {doppelstudium_bachelor}")
+        print(f"Unterschrift hochgeladen: {'Ja' if unterschrift else 'Nein'}")
 
-        # Überprüfen, ob der Student existiert, andernfalls erstellen
-        student = session.query(Student).filter_by(matrikelnummer=matrikelnummer).first()
+        # Token validieren
+        if not authorization.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Ungültiges Token-Format")
+        token = authorization.split(" ")[1]
+
+        # Token dekodieren und Benutzerdaten extrahieren
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            user_email = payload.get("sub")
+            if user_email is None:
+                raise HTTPException(status_code=401, detail="Ungültiges Token")
+        except JWTError as e:
+            print(f"JWT-Fehler: {e}")
+            raise HTTPException(status_code=401, detail="Token-Fehler")
+
+        # Benutzer aus der Datenbank laden
+        user = db.query(Benutzer).filter(Benutzer.email == user_email).first()
+        if not user or not user.student_id:
+            raise HTTPException(status_code=401, detail="Benutzer ist keinem Studenten zugeordnet")
+
+        # Student abrufen
+        student = db.query(Student).filter_by(id=user.student_id).first()
         if not student:
-            student = Student(
-                vorname=vorname,
-                name=nachname,
-                matrikelnummer=matrikelnummer,
-                fachbereich=fachbereich,
-                studiengang=bachelorstudiengang,
-            )
-            session.add(student)
-            session.commit()
+            raise HTTPException(status_code=404, detail="Student nicht gefunden")
 
         # JokerAntrag erstellen
         joker_antrag = JokerAntrag(
@@ -100,16 +139,20 @@ async def generate_pdf(
             status="Ausstehend",
             datum_erstellung=datetime.now(),
         )
-        session.add(joker_antrag)
-        session.commit()
+        db.add(joker_antrag)
+        db.commit()
+        print(f"JokerAntrag erstellt: ID {joker_antrag.id}")
 
         # PDF-Generierung
         input_pdf_path = "assets/JokerAntragTemplate.pdf"
         output_pdf_path = f"joker_antrag_{joker_antrag.id}.pdf"
 
+        if not os.path.exists(input_pdf_path):
+            raise FileNotFoundError(f"PDF-Template nicht gefunden: {input_pdf_path}")
+
+        print("Beginne PDF-Generierung...")
         reader = PdfReader(input_pdf_path)
         writer = PdfWriter()
-
         aktuelles_datum = datetime.now().strftime("%d.%m.%Y")
         temp_signature_path = None
 
@@ -118,7 +161,7 @@ async def generate_pdf(
             overlay_canvas = canvas.Canvas(packet, pagesize=letter)
 
             if page_num == 0:
-                for field, position in field_config.items():
+                for field, position in load_field_config().items():
                     if field == "unterschrift" and unterschrift:
                         unterschrift_data = await unterschrift.read()
                         temp_signature_path = f"unterschriften/{joker_antrag.id}_student.png"
@@ -151,13 +194,15 @@ async def generate_pdf(
         with open(output_pdf_path, "wb") as output_file:
             writer.write(output_file)
 
+        print(f"PDF generiert: {output_pdf_path}")
+
         if temp_signature_path and os.path.exists(temp_signature_path):
             joker_antrag.dokumenten_metadaten = DokumentenMetadaten(
                 dokument_name=f"joker_antrag_{joker_antrag.id}.pdf",
                 typ="PDF",
                 erstelldatum=datetime.now(),
             )
-            session.commit()
+            db.commit()
 
         return FileResponse(
             output_pdf_path,
@@ -165,11 +210,13 @@ async def generate_pdf(
             filename=f"joker_antrag_{joker_antrag.id}.pdf"
         )
     except Exception as e:
-        session.rollback()
-        print("Fehler beim Erstellen des PDFs:", e)
-        raise HTTPException(status_code=500, detail="Fehler beim Erstellen des PDFs")
+        db.rollback()
+        print(f"Fehler beim Erstellen des PDFs: {e}")
+        raise HTTPException(status_code=500, detail=f"Fehler beim Erstellen des PDFs: {e}")
     finally:
-        session.close()
+        db.close()
+
+
     
 @app.post("/preview-pdf")
 async def preview_pdf(
@@ -400,3 +447,48 @@ async def get_antrag_sekretariat(antrag_id: int):
         raise HTTPException(status_code=500, detail="Fehler beim Abrufen des Antrags")
     finally:
         session.close()
+
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
+
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+@app.get("/api/me")
+async def get_current_user(
+    token: str = Depends(oauth2_scheme), 
+    db: Session = Depends(get_db)
+):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            raise HTTPException(status_code=401, detail="Ungültiges Token")
+
+        user = db.query(Benutzer).filter(Benutzer.email == email).first()
+        if user is None:
+            raise HTTPException(status_code=401, detail="Benutzer nicht gefunden")
+        
+        return {"name": user.email, "role": user.rolle}
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token abgelaufen")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Ungültiges Token")
+
+
+from fastapi import FastAPI, Depends, HTTPException
+from sqlalchemy.orm import Session
+from backend.database import get_db
+from backend.models import JokerAntrag
+
+@app.get("/api/antraege")
+async def get_antraege(user_id: int = 1, db: Session = Depends(get_db)):
+    try:
+        antraege = db.query(JokerAntrag).filter(JokerAntrag.student_id == user_id).all()
+        return [{"id": antrag.id, "fach": antrag.fach, "status": antrag.status} for antrag in antraege]
+    except Exception as e:
+        print(f"Fehler beim Abrufen der Anträge: {e}")
+        raise HTTPException(status_code=500, detail="Fehler beim Abrufen der Anträge")
+
+
+

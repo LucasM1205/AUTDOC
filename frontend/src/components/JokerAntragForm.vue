@@ -4,7 +4,6 @@
 
     <!-- Grunddaten Container mit Toggle -->
     <div class="grunddaten-container">
-      <!-- Toggle zur automatischen Übernahme der Grunddaten -->
       <div class="form-group">
         <label>
           <input type="checkbox" v-model="autoFillGrunddaten" /> Automatisch ausfüllen
@@ -22,7 +21,6 @@
             placeholder="Vorname eingeben"
           />
         </div>
-
         <div class="form-group">
           <label for="nachname">Nachname</label>
           <input
@@ -33,7 +31,6 @@
             placeholder="Nachname eingeben"
           />
         </div>
-
         <div class="form-group">
           <label for="matrikelnummer">Matrikelnummer</label>
           <input
@@ -44,7 +41,6 @@
             placeholder="Matrikelnummer eingeben"
           />
         </div>
-
         <div class="form-group">
           <label for="fachbereich">Fachbereich</label>
           <input
@@ -55,7 +51,6 @@
             placeholder="Fachbereich eingeben"
           />
         </div>
-
         <div class="form-group">
           <label for="bachelorstudiengang">Bachelorstudiengang</label>
           <input
@@ -66,8 +61,6 @@
             placeholder="Bachelorstudiengang eingeben"
           />
         </div>
-
-        <!-- Unterschrift-Upload -->
         <div class="form-group">
           <label for="unterschrift">Unterschrift hochladen</label>
           <input
@@ -85,9 +78,13 @@
       <form @submit.prevent="handleSubmit">
         <div class="form-group">
           <label for="fach">Fach</label>
-          <input type="text" id="fach" v-model="weiterfuehrendeDaten.fach" placeholder="Fach eingeben" />
+          <input
+            type="text"
+            id="fach"
+            v-model="weiterfuehrendeDaten.fach"
+            placeholder="Fach eingeben"
+          />
         </div>
-
         <div class="form-group">
           <label for="pruefungsnummer">Prüfungsnummer</label>
           <input
@@ -97,7 +94,7 @@
             placeholder="Prüfungsnummer eingeben"
           />
         </div>
-
+        <!-- Ergänztes Feld: Fachbereich des Moduls -->
         <div class="form-group">
           <label for="fachbereichModul">Fachbereich des Moduls</label>
           <input
@@ -107,7 +104,6 @@
             placeholder="Fachbereich des Moduls eingeben"
           />
         </div>
-
         <div class="form-group">
           <label for="pruefer">Prüfer</label>
           <input
@@ -117,7 +113,6 @@
             placeholder="Prüfer eingeben"
           />
         </div>
-
         <div class="form-group">
           <label for="jokerStatus">Joker-Status</label>
           <select v-model="weiterfuehrendeDaten.jokerStatus" @change="checkDoppelstudium">
@@ -127,8 +122,6 @@
             <option value="doppelstudium">Ich studiere im Doppelstudium</option>
           </select>
         </div>
-
-        <!-- Zusätzliche Eingabe für Bachelorstudiengang bei Doppelstudium -->
         <div v-if="weiterfuehrendeDaten.jokerStatus === 'doppelstudium'" class="form-group">
           <label for="doppelstudiumBachelor">Bachelorstudiengang</label>
           <input
@@ -138,8 +131,6 @@
             placeholder="Bachelorstudiengang eingeben"
           />
         </div>
-
-        <!-- Button-Gruppe für Zurück, Vorschau und Speichern -->
         <div class="button-group">
           <button type="button" @click="goBack">Zurück</button>
           <button type="button" @click="previewPDF">Vorschau</button>
@@ -152,11 +143,17 @@
     <div v-if="showPreview" class="preview-modal">
       <div class="preview-container">
         <button @click="closePreview">Schließen</button>
-        <iframe id="pdf-preview" :src="previewUrl" frameborder="0" style="width: 100%; height: 500px;"></iframe>
+        <iframe
+          id="pdf-preview"
+          :src="previewUrl"
+          frameborder="0"
+          style="width: 100%; height: 500px;"
+        ></iframe>
       </div>
     </div>
   </div>
 </template>
+
 
 <script>
 export default {
@@ -166,57 +163,73 @@ export default {
       showPreview: false,
       previewUrl: "", // Vorschau-URL für das iframe
       grunddaten: {
-        vorname: '',
-        nachname: '',
-        matrikelnummer: '',
-        fachbereich: '',
-        bachelorstudiengang: '',
+        vorname: "",
+        nachname: "",
+        matrikelnummer: "",
+        fachbereich: "",
+        bachelorstudiengang: "",
         unterschrift: null,
       },
       weiterfuehrendeDaten: {
-        fach: '',
-        pruefungsnummer: '',
-        fachbereichModul: '',
-        pruefer: '',
-        jokerStatus: '',
-        doppelstudiumBachelor: '',
+        fach: "",
+        pruefungsnummer: "",
+        pruefer: "",
+        fachbereichModul: "",
+        jokerStatus: "",
+        doppelstudiumBachelor: "",
       },
     };
   },
   methods: {
     handleFileUpload(event) {
       this.grunddaten.unterschrift = event.target.files[0];
-      console.log('Unterschrift hochgeladen:', this.grunddaten.unterschrift);
     },
     async previewPDF() {
       try {
         const formData = new FormData();
-        formData.append('vorname', this.grunddaten.vorname);
-        formData.append('nachname', this.grunddaten.nachname);
-        formData.append('matrikelnummer', this.grunddaten.matrikelnummer);
-        formData.append('fachbereich', this.grunddaten.fachbereich);
-        formData.append('bachelorstudiengang', this.grunddaten.bachelorstudiengang);
-        formData.append('unterschrift', this.grunddaten.unterschrift);
-        formData.append('fach', this.weiterfuehrendeDaten.fach);
-        formData.append('pruefungsnummer', this.weiterfuehrendeDaten.pruefungsnummer);
-        formData.append('fachbereich_modul', this.weiterfuehrendeDaten.fachbereichModul);
-        formData.append('pruefer', this.weiterfuehrendeDaten.pruefer);
-        formData.append('joker_status', this.weiterfuehrendeDaten.jokerStatus);
-        formData.append('doppelstudium_bachelor', this.weiterfuehrendeDaten.doppelstudiumBachelor || '');
+        // Fügen Sie Grunddaten hinzu
+        Object.entries(this.grunddaten).forEach(([key, value]) =>
+          formData.append(key, value || "")
+        );
 
-        const response = await fetch('http://127.0.0.1:8000/preview-pdf', {
-          method: 'POST',
+        // Weiterführende Daten in snake_case hinzufügen
+        const snakeCaseFields = {
+          fach: this.weiterfuehrendeDaten.fach,
+          pruefungsnummer: this.weiterfuehrendeDaten.pruefungsnummer,
+          pruefer: this.weiterfuehrendeDaten.pruefer,
+          fachbereich_modul: this.weiterfuehrendeDaten.fachbereichModul,
+          joker_status: this.weiterfuehrendeDaten.jokerStatus,
+          doppelstudium_bachelor: this.weiterfuehrendeDaten.doppelstudiumBachelor,
+        };
+
+        Object.entries(snakeCaseFields).forEach(([key, value]) =>
+          formData.append(key, value || "")
+        );
+
+        // Unterschrift hinzufügen, falls vorhanden
+        if (this.grunddaten.unterschrift) {
+          formData.append("unterschrift", this.grunddaten.unterschrift);
+        }
+
+        // Vorschau-PDF anfordern
+        const response = await fetch("http://127.0.0.1:8000/preview-pdf", {
+          method: "POST",
           body: formData,
         });
 
-        if (!response.ok) throw new Error('Fehler bei der Vorschau');
+        if (!response.ok) {
+          const errorDetails = await response.json();
+          console.error("Fehlerdetails bei Vorschau:", errorDetails);
+          throw new Error("Fehler bei der Vorschau");
+        }
 
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
         this.previewUrl = url;
         this.showPreview = true;
       } catch (error) {
-        console.error('Fehler bei der Vorschau:', error);
+        console.error("Fehler bei der Vorschau:", error);
+        alert("Fehler bei der Vorschau.");
       }
     },
     closePreview() {
@@ -225,57 +238,120 @@ export default {
     },
     async handleSubmit() {
       try {
-        const formData = new FormData();
-        formData.append('vorname', this.grunddaten.vorname);
-        formData.append('nachname', this.grunddaten.nachname);
-        formData.append('matrikelnummer', this.grunddaten.matrikelnummer);
-        formData.append('fachbereich', this.grunddaten.fachbereich);
-        formData.append('bachelorstudiengang', this.grunddaten.bachelorstudiengang);
-        formData.append('unterschrift', this.grunddaten.unterschrift);
-        formData.append('fach', this.weiterfuehrendeDaten.fach);
-        formData.append('pruefungsnummer', this.weiterfuehrendeDaten.pruefungsnummer);
-        formData.append('fachbereich_modul', this.weiterfuehrendeDaten.fachbereichModul);
-        formData.append('pruefer', this.weiterfuehrendeDaten.pruefer);
-        formData.append('joker_status', this.weiterfuehrendeDaten.jokerStatus);
-        formData.append('doppelstudium_bachelor', this.weiterfuehrendeDaten.doppelstudiumBachelor || '');
+        const token = localStorage.getItem("access_token");
+        if (!token) {
+          alert("Kein Token gefunden. Bitte erneut anmelden.");
+          this.$router.push({ name: "login" });
+          return;
+        }
 
-        const response = await fetch('http://127.0.0.1:8000/generate-pdf', {
-          method: 'POST',
+        const formData = new FormData();
+        // Fügen Sie Grunddaten hinzu
+        Object.entries(this.grunddaten).forEach(([key, value]) =>
+          formData.append(key, value || "")
+        );
+
+        // Weiterführende Daten in snake_case hinzufügen
+        const snakeCaseFields = {
+          fach: this.weiterfuehrendeDaten.fach,
+          pruefungsnummer: this.weiterfuehrendeDaten.pruefungsnummer,
+          pruefer: this.weiterfuehrendeDaten.pruefer,
+          fachbereich_modul: this.weiterfuehrendeDaten.fachbereichModul,
+          joker_status: this.weiterfuehrendeDaten.jokerStatus,
+          doppelstudium_bachelor: this.weiterfuehrendeDaten.doppelstudiumBachelor,
+        };
+
+        Object.entries(snakeCaseFields).forEach(([key, value]) =>
+          formData.append(key, value || "")
+        );
+
+        // Unterschrift hinzufügen, falls vorhanden
+        if (this.grunddaten.unterschrift) {
+          formData.append("unterschrift", this.grunddaten.unterschrift);
+        }
+
+        const response = await fetch("http://127.0.0.1:8000/generate-pdf", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
           body: formData,
         });
 
         if (!response.ok) {
           const errorDetails = await response.json();
-          console.error('Fehlerdetails:', errorDetails);
-          throw new Error(`Fehler beim Erstellen der PDF-Datei: ${errorDetails.detail}`);
+          if (errorDetails.detail && Array.isArray(errorDetails.detail)) {
+            const errorMessages = errorDetails.detail
+              .map((err) => `Feld: ${err.loc.join(" -> ")}, Fehler: ${err.msg}`)
+              .join("\n");
+            throw new Error(`Fehler beim Speichern:\n${errorMessages}`);
+          } else {
+            throw new Error("Unbekannter Fehler beim Speichern.");
+          }
         }
 
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
 
-        const link = document.createElement('a');
+        const link = document.createElement("a");
         link.href = url;
-        link.setAttribute('download', 'joker_antrag_ausgefuellt.pdf');
+        link.setAttribute("download", "joker_antrag_ausgefuellt.pdf");
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
 
-        console.log('PDF erfolgreich generiert und heruntergeladen!');
+        alert("Antrag erfolgreich erstellt!");
+        this.$router.push({ name: "dashboard" });
       } catch (error) {
-        console.error('Fehler:', error.message);
+        console.error("Fehler:", error.message);
+        alert(`Fehler: ${error.message}`);
+      }
+    },
+    async fetchCurrentUser() {
+      try {
+        const token = localStorage.getItem("access_token");
+        if (!token) {
+          this.$router.push({ name: "login" });
+          return;
+        }
+
+        const response = await fetch("http://127.0.0.1:8000/api/me", {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error("Fehler beim Abrufen des Benutzers");
+        }
+
+        const data = await response.json();
+        console.log("Benutzerdaten:", data);
+      } catch (error) {
+        console.error("Fehler:", error);
+        alert("Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.");
+        localStorage.removeItem("access_token");
+        this.$router.push({ name: "login" });
       }
     },
     goBack() {
-      this.$router.push({ name: 'form-selector' });
+      this.$router.push({ name: "form-selector" });
     },
     checkDoppelstudium() {
-      if (this.weiterfuehrendeDaten.jokerStatus !== 'doppelstudium') {
-        this.weiterfuehrendeDaten.doppelstudiumBachelor = '';
+      if (this.weiterfuehrendeDaten.jokerStatus !== "doppelstudium") {
+        this.weiterfuehrendeDaten.doppelstudiumBachelor = "";
       }
     },
   },
+  async created() {
+    await this.fetchCurrentUser();
+  },
 };
 </script>
+
+
+
 
 <style scoped>
 .form-container {
