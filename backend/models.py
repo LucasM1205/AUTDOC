@@ -78,3 +78,5 @@ class DokumentenMetadaten(Base):
     erstelldatum = Column(DateTime, default=datetime.now)
     joker_antraege = relationship("JokerAntrag", back_populates="dokumenten_metadaten")
 
+#Base.metadata.create_all(bind=engine)
+

@@ -350,9 +350,6 @@ export default {
 };
 </script>
 
-
-
-
 <style scoped>
 .form-container {
   max-width: 800px;

@@ -3,6 +3,7 @@ import Dashboard from '../components/Dashboard.vue';
 import LoginForm from '../components/LoginForm.vue';
 import FormSelector from '../components/FormSelector.vue';
 import JokerAntragForm from '../components/JokerAntragForm.vue';
+//import AbschlussarbeitExternForm from '../components/AbschlussarbeitExternForm.vue';
 
 const routes = [
   { 
@@ -36,6 +37,11 @@ const routes = [
     component: () => import('../components/AbschlussarbeitForm.vue'),
   },
   {
+    path: '/abschlussarbeit-extern',
+    name: 'abschlussarbeit-extern',
+    component: () => import('../components/AbschlussarbeitExternForm.vue'),
+  },
+  {
     path: '/verlaengerung',
     name: 'verlaengerung',
     component: () => import('../components/VerlaengerungForm.vue'),
@@ -53,6 +59,7 @@ if (!localStorage.getItem('session_initialized')) {
   localStorage.setItem('session_initialized', 'true'); // Neue Session setzen
 }
 
+// Navigation Guards für geschützte Routen
 router.beforeEach((to, from, next) => {
   const token = localStorage.getItem("access_token");
 
@@ -64,6 +71,5 @@ router.beforeEach((to, from, next) => {
     next(); // Fortfahren
   }
 });
-
 
 export default router;
