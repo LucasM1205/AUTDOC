@@ -57,9 +57,11 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60  # Lebensdauer des Tokens (in Minuten)
 def create_access_token(data: dict):
     to_encode = data.copy()
     expire = datetime.now() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
+    to_encode.update({"exp": expire})  # Ablaufdatum hinzufügen
+    to_encode.update({"role": data["role"]})  # Benutzerrolle hinzufügen
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
 
 @app.post("/token")
 async def login_for_access_token(
@@ -490,5 +492,38 @@ async def get_antraege(user_id: int = 1, db: Session = Depends(get_db)):
         print(f"Fehler beim Abrufen der Anträge: {e}")
         raise HTTPException(status_code=500, detail="Fehler beim Abrufen der Anträge")
 
+@app.get("/api/antraege/sekretariat")
+async def get_antraege_sekretariat(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)  # Benutzer aus Token laden
+):
+    # Prüfen, ob die Rolle "Sekretariat" ist
+    if current_user["role"] != "Sekretariat":
+        raise HTTPException(status_code=403, detail="Zugriff verweigert")
 
+    try:
+        # Alle ausstehenden Anträge abrufen
+        antraege = (
+            db.query(JokerAntrag)
+            .filter(JokerAntrag.status == "Ausstehend")
+            .all()
+        )
+        # Rückgabe im gewünschten JSON-Format
+        return [
+            {
+                "id": antrag.id,
+                "fach": antrag.fach,
+                "pruefungsnummer": antrag.pruefungsnummer,
+                "status": antrag.status,
+                "datum_erstellung": antrag.datum_erstellung,
+                "student": {
+                    "name": antrag.student.name,
+                    "vorname": antrag.student.vorname,
+                },
+            }
+            for antrag in antraege
+        ]
+    except Exception as e:
+        print(f"Fehler beim Abrufen der Anträge: {e}")
+        raise HTTPException(status_code=500, detail="Fehler beim Abrufen der Anträge")
 

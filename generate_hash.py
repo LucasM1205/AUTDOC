@@ -1,7 +1,7 @@
 from werkzeug.security import generate_password_hash
 
 # Passwort, das gehasht werden soll
-password = "student123"
+password = "sektretariat123"
 
 # Hash generieren und ausgeben
 print(generate_password_hash(password))
