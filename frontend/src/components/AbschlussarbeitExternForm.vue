@@ -297,7 +297,7 @@
   .grunddaten-container,
   .weiterfuehrende-daten-container {
     margin-top: 20px;
-    padding: 20px;
+    padding: 20px; 
     border: 1px solid #ccc;
     border-radius: 8px;
     box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);

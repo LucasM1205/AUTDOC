@@ -3,7 +3,7 @@ import Dashboard from '../components/Dashboard.vue';
 import LoginForm from '../components/LoginForm.vue';
 import FormSelector from '../components/FormSelector.vue';
 import JokerAntragForm from '../components/JokerAntragForm.vue';
-//import AbschlussarbeitExternForm from '../components/AbschlussarbeitExternForm.vue';
+import AntragBearbeiten from '../components/AntragBearbeiten.vue';
 
 const routes = [
   { 
@@ -45,6 +45,12 @@ const routes = [
     path: '/verlaengerung',
     name: 'verlaengerung',
     component: () => import('../components/VerlaengerungForm.vue'),
+  },
+  {
+    path: '/antrag-bearbeiten/:id', // Neue Route für die Bearbeiten-Seite
+    name: 'antrag-bearbeiten',
+    component: AntragBearbeiten,
+    props: true, // Aktiviert die Übergabe von Parametern als Props
   },
 ];
 

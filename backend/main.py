@@ -309,7 +309,15 @@ async def bearbeite_antrag_sekretariat(
     session: Session = SessionLocal()
     try:
         # Antrag abrufen
-        antrag = session.query(JokerAntrag).filter_by(id=antrag_id).first()
+        antrag = (
+            session.query(JokerAntrag)
+            .options(
+                joinedload(JokerAntrag.student),  # Lade die Studentendaten
+                joinedload(JokerAntrag.sek_vorgang)  # Lade den Sekretariatsvorgang
+            )
+            .filter_by(id=antrag_id)
+            .first()
+        )
         if not antrag:
             raise HTTPException(status_code=404, detail="Antrag nicht gefunden")
 
@@ -322,13 +330,36 @@ async def bearbeite_antrag_sekretariat(
         antrag.sek_vorgang.letzte_aenderung = datetime.now()
         session.commit()
 
-        return {"message": "Antrag erfolgreich durch das Sekretariat bearbeitet"}
+        # Rückgabe der aktualisierten Daten
+        antrag_data = {
+            "antrag_id": antrag.id,
+            "status": antrag.status,
+            "fach": antrag.fach,
+            "pruefungsnummer": antrag.pruefungsnummer,
+            "pruefer": antrag.pruefer,
+            "joker_verwendet": antrag.joker_verwendet,
+            "doppelstudium": antrag.doppelstudium,
+            "doppelstudium_name": antrag.doppelstudium_name,
+            "datum_erstellung": antrag.datum_erstellung,
+            "letzte_aenderung": antrag.sek_vorgang.letzte_aenderung,
+            "bemerkungen": antrag.sek_vorgang.bemerkungen,
+            "joker_verfuegbar": antrag.sek_vorgang.joker_verfuegbar,
+            "student": {
+                "name": antrag.student.name,
+                "vorname": antrag.student.vorname,
+                "matrikelnummer": antrag.student.matrikelnummer,
+                "fachbereich": antrag.student.fachbereich,
+            } if antrag.student else None,
+        }
+
+        return {"message": "Antrag erfolgreich durch das Sekretariat bearbeitet", "antrag_data": antrag_data}
     except Exception as e:
         session.rollback()
         print("Fehler:", e)
         raise HTTPException(status_code=500, detail="Fehler bei der Bearbeitung des Antrags")
     finally:
         session.close()
+
 
 @app.put("/jokerantrag/{antrag_id}/pruefungsausschuss")
 async def bearbeite_antrag_pruefungsausschuss(
@@ -479,51 +510,194 @@ async def get_current_user(
 
 
 from fastapi import FastAPI, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from backend.database import get_db
 from backend.models import JokerAntrag
+from sqlalchemy.sql import text
+from sqlalchemy.exc import SQLAlchemyError
 
-@app.get("/api/antraege")
-async def get_antraege(user_id: int = 1, db: Session = Depends(get_db)):
+@app.get("/api/antraege/student")
+async def get_antraege_student(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    # Prüfen, ob die Rolle "Student" ist
+    if current_user["role"] != "Student":
+        raise HTTPException(status_code=403, detail="Zugriff verweigert")
+
     try:
-        antraege = db.query(JokerAntrag).filter(JokerAntrag.student_id == user_id).all()
-        return [{"id": antrag.id, "fach": antrag.fach, "status": antrag.status} for antrag in antraege]
+        student_id = current_user.get("student_id", 1)
+        if not student_id:
+            raise HTTPException(status_code=404, detail="Student nicht gefunden")
+
+        # SQL-Abfrage erstellen
+        query = text("""
+            SELECT 
+                ja.id AS antrag_id,
+                ja.fach AS fach,
+                ja.pruefungsnummer AS pruefungsnummer,
+                ja.status AS status,
+                ja.datum_erstellung AS datum_erstellung,
+                ja.bemerkungen AS bemerkungen,
+                ja.joker_verwendet AS joker_verwendet,
+                ja.doppelstudium AS doppelstudium,
+                ja.doppelstudium_name AS doppelstudium_name,
+                s.name AS student_name,
+                s.vorname AS student_vorname,
+                s.matrikelnummer AS student_matrikelnummer,
+                s.studiengang AS student_studiengang
+            FROM joker_antraege ja
+            LEFT JOIN studenten s ON ja.student_id = s.id
+            WHERE ja.student_id = :student_id
+              AND ja.status IN (
+                  'Ausstehend', 
+                  'Antrag durch Sekretariat genehmigt; Rückmeldung durch Prüfungsausschuss ausstehend'
+              )
+        """)
+
+        # Abfrage ausführen
+        result = db.execute(query, {"student_id": student_id})
+
+        # Konvertiere jede Zeile in ein Dictionary basierend auf Indizes
+        antraege = [
+            {
+                "antrag_id": row[0],
+                "fach": row[1],
+                "pruefungsnummer": row[2],
+                "status": row[3],
+                "datum_erstellung": row[4],
+                "bemerkungen": row[5],
+                "joker_verwendet": row[6],
+                "doppelstudium": row[7],
+                "doppelstudium_name": row[8],
+                "student_name": row[9],
+                "student_vorname": row[10],
+                "student_matrikelnummer": row[11],
+                "student_studiengang": row[12],
+            }
+            for row in result.fetchall()
+        ]
+
+        return antraege
     except Exception as e:
         print(f"Fehler beim Abrufen der Anträge: {e}")
         raise HTTPException(status_code=500, detail="Fehler beim Abrufen der Anträge")
+
 
 @app.get("/api/antraege/sekretariat")
 async def get_antraege_sekretariat(
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)  # Benutzer aus Token laden
+    current_user: dict = Depends(get_current_user)
 ):
-    # Prüfen, ob die Rolle "Sekretariat" ist
     if current_user["role"] != "Sekretariat":
         raise HTTPException(status_code=403, detail="Zugriff verweigert")
 
     try:
-        # Alle ausstehenden Anträge abrufen
-        antraege = (
-            db.query(JokerAntrag)
-            .filter(JokerAntrag.status == "Ausstehend")
-            .all()
-        )
-        # Rückgabe im gewünschten JSON-Format
-        return [
+        query = text("""
+            SELECT 
+                ja.id AS antrag_id,
+                ja.fach AS fach,
+                ja.pruefungsnummer AS pruefungsnummer,
+                ja.status AS status,
+                ja.datum_erstellung AS datum_erstellung,
+                s.name AS student_name,
+                s.vorname AS student_vorname,
+                s.matrikelnummer AS student_matrikelnummer,
+                s.studiengang AS student_studiengang
+            FROM joker_antraege ja
+            LEFT JOIN studenten s ON ja.student_id = s.id
+            WHERE ja.status IN (
+                'Ausstehend', 
+                'Antrag durch Sekretariat genehmigt; Rückmeldung durch Prüfungsausschuss ausstehend'
+            )
+        """)
+        
+        result = db.execute(query)
+
+        # Konvertiere jede Zeile in ein Dictionary basierend auf Indizes
+        antraege = [
             {
-                "id": antrag.id,
-                "fach": antrag.fach,
-                "pruefungsnummer": antrag.pruefungsnummer,
-                "status": antrag.status,
-                "datum_erstellung": antrag.datum_erstellung,
-                "student": {
-                    "name": antrag.student.name,
-                    "vorname": antrag.student.vorname,
-                },
+                "antrag_id": row[0],
+                "fach": row[1],
+                "pruefungsnummer": row[2],
+                "status": row[3],
+                "datum_erstellung": row[4],
+                "student_name": row[5],
+                "student_vorname": row[6],
+                "student_matrikelnummer": row[7],
+                "student_studiengang": row[8],
             }
-            for antrag in antraege
+            for row in result.fetchall()
         ]
+
+        return antraege
     except Exception as e:
         print(f"Fehler beim Abrufen der Anträge: {e}")
         raise HTTPException(status_code=500, detail="Fehler beim Abrufen der Anträge")
+
+
+from datetime import datetime
+from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
+from backend.database import get_db
+from backend.models import JokerAntrag
+from pydantic import BaseModel
+
+# Request Body Schema
+class UpdateAntragRequest(BaseModel):
+    joker_verfuegbar: bool = None
+    bemerkungen: str = None
+    status: str = None
+
+@app.put("/api/antraege/{antrag_id}")
+async def update_antrag(
+    antrag_id: int,
+    update_data: UpdateAntragRequest,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    # Debugging: Userrolle und empfangene Daten
+    print(f"DEBUG: Userrolle: {current_user['role']}, Update-Daten: {update_data.dict()}")
+
+    if current_user["role"] != "Sekretariat":
+        raise HTTPException(status_code=403, detail="Zugriff verweigert")
+
+    try:
+        # Antrag suchen
+        antrag = db.query(JokerAntrag).filter(JokerAntrag.id == antrag_id).first()
+        if not antrag:
+            print(f"DEBUG: Antrag mit ID {antrag_id} nicht gefunden")
+            raise HTTPException(status_code=404, detail="Antrag nicht gefunden")
+
+        # Debug: Antrag vor Aktualisierung
+        print(f"DEBUG: Antrag vor Aktualisierung: {antrag}")
+
+        # Felder aktualisieren
+        if update_data.joker_verfuegbar is not None:
+            print(f"DEBUG: Aktualisiere joker_verfuegbar auf {update_data.joker_verfuegbar}")
+            antrag.joker_verfuegbar = update_data.joker_verfuegbar
+            # Status dynamisch basierend auf joker_verfuegbar
+            if update_data.joker_verfuegbar:
+                antrag.status = "Antrag durch Sekretariat genehmigt; Rückmeldung durch Prüfungsausschuss ausstehend"
+            else:
+                antrag.status = "Antrag durch Sekretariat abgelehnt"
+
+        if update_data.bemerkungen is not None:
+            print(f"DEBUG: Aktualisiere bemerkungen auf {update_data.bemerkungen}")
+            antrag.bemerkungen = update_data.bemerkungen
+
+        # Letzte Änderung speichern
+        antrag.letzte_aenderung = datetime.now()
+
+        # Änderungen speichern
+        db.commit()
+        db.refresh(antrag)
+
+        # Debug: Antrag nach Aktualisierung
+        print(f"DEBUG: Antrag nach Aktualisierung: {antrag}")
+
+        return {"message": "Antrag erfolgreich aktualisiert", "antrag": antrag}
+    except Exception as e:
+        print(f"Fehler beim Aktualisieren des Antrags: {e}")
+        raise HTTPException(status_code=500, detail="Fehler beim Aktualisieren des Antrags")
 
