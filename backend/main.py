@@ -551,7 +551,10 @@ async def get_antraege_student(
             WHERE ja.student_id = :student_id
               AND ja.status IN (
                   'Ausstehend', 
-                  'Antrag durch Sekretariat genehmigt; Rückmeldung durch Prüfungsausschuss ausstehend'
+                  'Antrag durch Sekretariat genehmigt; Rückmeldung durch Prüfungsausschuss ausstehend',
+                  'Antrag genehmigt durch Prüfungsausschuss',
+                  'Antrag abgelehnt durch Prüfungsausschuss',
+                  'Antrag durch Sekretariat abgelehnt'
               )
         """)
 
@@ -583,7 +586,6 @@ async def get_antraege_student(
         print(f"Fehler beim Abrufen der Anträge: {e}")
         raise HTTPException(status_code=500, detail="Fehler beim Abrufen der Anträge")
 
-
 @app.get("/api/antraege/sekretariat")
 async def get_antraege_sekretariat(
     db: Session = Depends(get_db),
@@ -608,7 +610,9 @@ async def get_antraege_sekretariat(
             LEFT JOIN studenten s ON ja.student_id = s.id
             WHERE ja.status IN (
                 'Ausstehend', 
-                'Antrag durch Sekretariat genehmigt; Rückmeldung durch Prüfungsausschuss ausstehend'
+                'Antrag durch Sekretariat genehmigt; Rückmeldung durch Prüfungsausschuss ausstehend',
+                'Antrag genehmigt durch Prüfungsausschuss',
+                'Antrag abgelehnt durch Prüfungsausschuss'
             )
         """)
         
@@ -634,6 +638,7 @@ async def get_antraege_sekretariat(
     except Exception as e:
         print(f"Fehler beim Abrufen der Anträge: {e}")
         raise HTTPException(status_code=500, detail="Fehler beim Abrufen der Anträge")
+
 
 
 from datetime import datetime
@@ -701,3 +706,126 @@ async def update_antrag(
         print(f"Fehler beim Aktualisieren des Antrags: {e}")
         raise HTTPException(status_code=500, detail="Fehler beim Aktualisieren des Antrags")
 
+@app.get("/api/antraege/pruefungsausschuss")
+async def get_antraege_pruefungsausschuss(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    # Sicherstellen, dass der aktuelle Benutzer die Rolle "Prüfungsausschuss" hat
+    if current_user["role"] != "Prüfungsausschuss":
+        raise HTTPException(status_code=403, detail="Zugriff verweigert")
+
+    try:
+        # SQL-Abfrage für Anträge mit dem passenden Status
+        query = text("""
+            SELECT 
+                ja.id AS antrag_id,
+                ja.fach AS fach,
+                ja.pruefungsnummer AS pruefungsnummer,
+                ja.status AS status,
+                ja.datum_erstellung AS datum_erstellung,
+                s.name AS student_name,
+                s.vorname AS student_vorname,
+                s.matrikelnummer AS student_matrikelnummer,
+                s.studiengang AS student_studiengang
+            FROM joker_antraege ja
+            LEFT JOIN studenten s ON ja.student_id = s.id
+            WHERE ja.status = 'Antrag durch Sekretariat genehmigt; Rückmeldung durch Prüfungsausschuss ausstehend'
+        """)
+
+        # Abfrage ausführen
+        result = db.execute(query)
+
+        # Ergebnisse in ein Array von Dictionaries umwandeln
+        antraege = [
+            {
+                "antrag_id": row[0],
+                "fach": row[1],
+                "pruefungsnummer": row[2],
+                "status": row[3],
+                "datum_erstellung": row[4],
+                "student_name": row[5],
+                "student_vorname": row[6],
+                "student_matrikelnummer": row[7],
+                "student_studiengang": row[8],
+            }
+            for row in result.fetchall()
+        ]
+
+        return antraege
+    except Exception as e:
+        print(f"Fehler beim Abrufen der Anträge: {e}")
+        raise HTTPException(status_code=500, detail="Fehler beim Abrufen der Anträge")
+
+
+import os
+from datetime import datetime
+from fastapi import APIRouter, HTTPException, Depends, Form, UploadFile, File
+from sqlalchemy.orm import Session
+from backend.database import get_db
+from backend.models import JokerAntrag, Pruefungsausschuss
+
+@app.put("/api/antraege/pruefungsausschuss/{antrag_id}")
+async def update_antrag_pruefungsausschuss(
+    antrag_id: int,
+    entscheidung: str = Form(...),  # "keineBedenken" oder "bedenken"
+    bedenken: str = Form(None),
+    unterschrift: UploadFile = File(None),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    # Debugging: Eingehende Daten
+    print(f"DEBUG: Entscheidung: {entscheidung}, Bedenken: {bedenken}, Unterschrift: {unterschrift}")
+
+    if current_user["role"] != "Prüfungsausschuss":
+        raise HTTPException(status_code=403, detail="Zugriff verweigert")
+
+    try:
+        # Antrag suchen
+        antrag = db.query(JokerAntrag).filter(JokerAntrag.id == antrag_id).first()
+        if not antrag:
+            raise HTTPException(status_code=404, detail="Antrag nicht gefunden")
+
+        # Prüfungsausschuss-Daten aktualisieren oder neu erstellen
+        pruefungsausschuss_entry = (
+            db.query(Pruefungsausschuss).filter(Pruefungsausschuss.joker_antrag_id == antrag_id).first()
+        )
+        if not pruefungsausschuss_entry:
+            pruefungsausschuss_entry = Pruefungsausschuss(joker_antrag_id=antrag_id)
+            db.add(pruefungsausschuss_entry)
+
+        # Entscheidung verarbeiten
+        if entscheidung == "keineBedenken":
+            antrag.status = "Antrag genehmigt durch Prüfungsausschuss"
+            pruefungsausschuss_entry.bedenken = None
+        elif entscheidung == "bedenken":
+            antrag.status = "Antrag abgelehnt durch Prüfungsausschuss"
+            pruefungsausschuss_entry.bedenken = bedenken
+
+        # Unterschrift speichern, falls vorhanden
+        if unterschrift:
+            # Sicherstellen, dass der Ordner "uploads/" existiert
+            upload_folder = "uploads"
+            os.makedirs(upload_folder, exist_ok=True)
+
+            # Datei speichern
+            file_location = os.path.join(upload_folder, unterschrift.filename)
+            with open(file_location, "wb") as file:
+                file.write(unterschrift.file.read())
+            pruefungsausschuss_entry.unterschrift = file_location
+
+        # Letzte Änderung speichern
+        antrag.letzte_aenderung = datetime.now()
+        pruefungsausschuss_entry.datum_bearbeitung = datetime.now()
+
+        # Änderungen speichern
+        db.commit()
+        db.refresh(antrag)
+
+        # Debugging: Antrag nach Aktualisierung
+        print(f"DEBUG: Antrag nach Aktualisierung: {antrag}")
+
+        return {"message": "Antrag erfolgreich aktualisiert", "antrag": antrag}
+    except Exception as e:
+        print(f"Fehler beim Aktualisieren des Antrags: {e}")
+        raise HTTPException(status_code=500, detail="Fehler beim Aktualisieren des Antrags")

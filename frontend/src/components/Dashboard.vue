@@ -6,13 +6,21 @@
       <button class="logout-button" @click="logout">Abmelden</button>
     </header>
 
-    <!-- Bearbeiten-Komponente -->
+    <!-- Bearbeiten-Komponente für Sekretariat -->
     <antrag-bearbeiten
-      v-if="selectedAntrag"
+      v-if="selectedAntrag && user.role === 'Sekretariat'"
       :antrag="selectedAntrag"
       @update-success="handleUpdateSuccess"
       @cancel-edit="handleCancelEdit"
     ></antrag-bearbeiten>
+
+    <!-- Bearbeiten-Komponente für Prüfungsausschuss -->
+    <antrag-bearbeiten-ausschuss
+      v-if="selectedAntrag && user.role === 'Prüfungsausschuss'"
+      :antrag="selectedAntrag"
+      @update-success="handleUpdateSuccess"
+      @cancel-edit="handleCancelEdit"
+    ></antrag-bearbeiten-ausschuss>
 
     <!-- Antragsliste wird nur angezeigt, wenn kein Antrag bearbeitet wird -->
     <div v-else-if="antraege.length">
@@ -31,6 +39,13 @@
               </button>
               <button
                 v-if="user.role === 'Sekretariat'"
+                @click="bearbeiteAntrag(antrag)"
+                class="bearbeiten-button"
+              >
+                Bearbeiten
+              </button>
+              <button
+                v-if="user.role === 'Prüfungsausschuss'"
                 @click="bearbeiteAntrag(antrag)"
                 class="bearbeiten-button"
               >
@@ -64,11 +79,13 @@
 </template>
 
 <script>
-import AntragBearbeiten from "./AntragBearbeiten.vue"; // Komponente importieren
+import AntragBearbeiten from "./AntragBearbeiten.vue"; // Komponente für Sekretariat
+import AntragBearbeitenAusschuss from "./AntragBearbeitenAusschuss.vue"; // Neue Komponente für Prüfungsausschuss
 
 export default {
   components: {
     AntragBearbeiten,
+    AntragBearbeitenAusschuss,
   },
   data() {
     return {
@@ -128,6 +145,8 @@ export default {
           endpoint = "http://127.0.0.1:8000/api/antraege/sekretariat";
         } else if (this.user.role === "Student") {
           endpoint = "http://127.0.0.1:8000/api/antraege/student";
+        } else if (this.user.role === "Prüfungsausschuss") {
+          endpoint = "http://127.0.0.1:8000/api/antraege/pruefungsausschuss";
         } else {
           throw new Error("Unbekannte Rolle");
         }
@@ -178,6 +197,8 @@ export default {
   },
 };
 </script>
+
+
 
 <style scoped>
 .dashboard {
