@@ -25,6 +25,17 @@
     <!-- Antragsliste wird nur angezeigt, wenn kein Antrag bearbeitet wird -->
     <div v-else-if="antraege.length">
       <h2>Deine Anträge:</h2>
+      
+      <!-- Sortieroptionen -->
+      <div class="sort-options">
+        <label for="sort-by">Sortieren nach:</label>
+        <select id="sort-by" v-model="sortCriteria" @change="sortAntraege">
+          <option value="status">Status</option>
+          <option value="date-asc">Erstellungsdatum (alt → neu)</option>
+          <option value="date-desc">Erstellungsdatum (neu → alt)</option>
+        </select>
+      </div>
+
       <ul class="antrags-liste">
         <li v-for="antrag in antraege" :key="antrag.antrag_id">
           <div class="antrag">
@@ -79,7 +90,6 @@
   </div>
 </template>
 
-
 <script>
 import AntragBearbeiten from "./AntragBearbeiten.vue"; // Komponente für Sekretariat
 import AntragBearbeitenAusschuss from "./AntragBearbeitenAusschuss.vue"; // Neue Komponente für Prüfungsausschuss
@@ -98,6 +108,7 @@ export default {
       antraege: [], // Liste der Anträge
       expandedAntragId: null, // Aktuell geöffneter Antrag für Details
       selectedAntrag: null, // Aktuell ausgewählter Antrag zum Bearbeiten
+      sortCriteria: "status", // Standardkriterium für die Sortierung
     };
   },
   async created() {
@@ -168,6 +179,7 @@ export default {
         }
 
         this.antraege = await response.json();
+        this.sortAntraege(); // Sortiere die Anträge direkt nach dem Laden
         console.log("DEBUG: Anträge geladen:", this.antraege);
       } catch (error) {
         console.error("Fehler beim Laden der Anträge:", error);
@@ -213,6 +225,28 @@ export default {
           return "status-red";
         default:
           return ""; // Fallback, falls der Status unbekannt ist
+      }
+    },
+    /**
+     * Sortiert die Anträge basierend auf dem ausgewählten Sortierkriterium.
+     */
+    sortAntraege() {
+      if (this.sortCriteria === "status") {
+        // Sortiere nach Status
+        const statusOrder = {
+          "Ausstehend": 1,
+          "Antrag durch Sekretariat genehmigt; Rückmeldung durch Prüfungsausschuss ausstehend": 2,
+          "Antrag genehmigt durch Prüfungsausschuss": 3,
+          "Antrag abgelehnt durch Prüfungsausschuss": 4,
+          "Antrag durch Sekretariat abgelehnt": 5,
+        };
+        this.antraege.sort((a, b) => (statusOrder[a.status] || 99) - (statusOrder[b.status] || 99));
+      } else if (this.sortCriteria === "date-asc") {
+        // Sortiere nach Datum (alt → neu)
+        this.antraege.sort((a, b) => new Date(a.datum_erstellung) - new Date(b.datum_erstellung));
+      } else if (this.sortCriteria === "date-desc") {
+        // Sortiere nach Datum (neu → alt)
+        this.antraege.sort((a, b) => new Date(b.datum_erstellung) - new Date(a.datum_erstellung));
       }
     },
   },
