@@ -25,7 +25,7 @@
     <!-- Antragsliste wird nur angezeigt, wenn kein Antrag bearbeitet wird -->
     <div v-else-if="antraege.length">
       <h2>Deine Anträge:</h2>
-      
+
       <!-- Sortieroptionen -->
       <div class="sort-options">
         <label for="sort-by">Sortieren nach:</label>
@@ -44,7 +44,7 @@
             <p :class="statusClass(antrag.status)">Status: {{ antrag.status }}</p>
             <p>Erstellt am: {{ formatDate(antrag.datum_erstellung) }}</p>
 
-            <!-- Button-Gruppe mit Ein-/Ausklappen -->
+            <!-- Button-Gruppe mit Ein-/Ausklappen und PDF-Generierung -->
             <div class="button-group">
               <button @click="toggleDetails(antrag.antrag_id)">
                 {{ expandedAntragId === antrag.antrag_id ? "Details ausblenden" : "Details anzeigen" }}
@@ -62,6 +62,13 @@
                 class="bearbeiten-button"
               >
                 Bearbeiten
+              </button>
+              <button
+                v-if="user.role === 'Sekretariat' && antrag.status === 'Antrag genehmigt durch Prüfungsausschuss'"
+                @click="generatePdfForSekretariat(antrag)"
+                class="generate-pdf-button"
+              >
+                PDF herunterladen
               </button>
             </div>
 
@@ -89,6 +96,7 @@
     </footer>
   </div>
 </template>
+
 
 <script>
 import AntragBearbeiten from "./AntragBearbeiten.vue"; // Komponente für Sekretariat
@@ -153,7 +161,6 @@ export default {
         const token = localStorage.getItem("access_token");
         let endpoint;
 
-        // Dynamischen Endpunkt basierend auf der Benutzerrolle setzen
         if (this.user.role === "Sekretariat") {
           endpoint = "http://127.0.0.1:8000/api/antraege/sekretariat";
         } else if (this.user.role === "Student") {
@@ -208,11 +215,6 @@ export default {
       localStorage.removeItem("access_token");
       this.$router.push({ name: "login" });
     },
-    /**
-     * Gibt die CSS-Klasse basierend auf dem Status des Antrags zurück.
-     * @param {string} status - Der Status des Antrags.
-     * @returns {string} - Die CSS-Klasse für den Status.
-     */
     statusClass(status) {
       switch (status) {
         case "Ausstehend":
@@ -227,12 +229,8 @@ export default {
           return ""; // Fallback, falls der Status unbekannt ist
       }
     },
-    /**
-     * Sortiert die Anträge basierend auf dem ausgewählten Sortierkriterium.
-     */
     sortAntraege() {
       if (this.sortCriteria === "status") {
-        // Sortiere nach Status
         const statusOrder = {
           "Ausstehend": 1,
           "Antrag durch Sekretariat genehmigt; Rückmeldung durch Prüfungsausschuss ausstehend": 2,
@@ -242,11 +240,44 @@ export default {
         };
         this.antraege.sort((a, b) => (statusOrder[a.status] || 99) - (statusOrder[b.status] || 99));
       } else if (this.sortCriteria === "date-asc") {
-        // Sortiere nach Datum (alt → neu)
         this.antraege.sort((a, b) => new Date(a.datum_erstellung) - new Date(b.datum_erstellung));
       } else if (this.sortCriteria === "date-desc") {
-        // Sortiere nach Datum (neu → alt)
         this.antraege.sort((a, b) => new Date(b.datum_erstellung) - new Date(a.datum_erstellung));
+      }
+    },
+    async generatePdfForSekretariat(antrag) {
+      try {
+        const token = localStorage.getItem("access_token");
+        const response = await fetch("http://127.0.0.1:8000/api/generate-pdf", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            antrag_id: antrag.antrag_id,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("Fehler beim Generieren des PDFs:", errorText);
+          alert("Fehler beim Generieren des PDFs.");
+          return;
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `Antrag_${antrag.antrag_id}.pdf`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+
+        console.log(`PDF erfolgreich generiert für Antrag ${antrag.antrag_id}`);
+      } catch (error) {
+        console.error("Fehler beim Generieren des PDFs:", error);
+        alert("Fehler beim Generieren des PDFs.");
       }
     },
   },
@@ -288,10 +319,12 @@ export default {
   margin: 0 0 10px;
 }
 
+/* Anpassung für die Button-Gruppe */
 .button-group {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  display: flex; /* Horizontale Ausrichtung */
+  flex-direction: row; /* Buttons in einer Zeile */
+  align-items: center; /* Vertikal ausrichten */
+  gap: 10px; /* Abstand zwischen den Buttons */
 }
 
 button {
@@ -307,8 +340,9 @@ button:hover {
   background-color: var(--secondary-color);
 }
 
+/* Anpassung für Bearbeiten-Button */
 .bearbeiten-button {
-  margin-left: auto; /* Schiebt den Bearbeiten-Button nach rechts */
+  margin-left: 0; /* Entfernt den Autoabstand */
 }
 
 .details-container {
@@ -346,4 +380,3 @@ button:hover {
   font-weight: bold;
 }
 </style>
-
