@@ -29,7 +29,8 @@
         <li v-for="antrag in antraege" :key="antrag.antrag_id">
           <div class="antrag">
             <h3>Antrag (ID: {{ antrag.antrag_id }}): {{ antrag.fach || "Unbekanntes Fach" }}</h3>
-            <p>Status: {{ antrag.status }}</p>
+            <!-- Status mit dynamischer Klasse -->
+            <p :class="statusClass(antrag.status)">Status: {{ antrag.status }}</p>
             <p>Erstellt am: {{ formatDate(antrag.datum_erstellung) }}</p>
 
             <!-- Button-Gruppe mit Ein-/Ausklappen -->
@@ -77,6 +78,7 @@
     </footer>
   </div>
 </template>
+
 
 <script>
 import AntragBearbeiten from "./AntragBearbeiten.vue"; // Komponente für Sekretariat
@@ -194,11 +196,28 @@ export default {
       localStorage.removeItem("access_token");
       this.$router.push({ name: "login" });
     },
+    /**
+     * Gibt die CSS-Klasse basierend auf dem Status des Antrags zurück.
+     * @param {string} status - Der Status des Antrags.
+     * @returns {string} - Die CSS-Klasse für den Status.
+     */
+    statusClass(status) {
+      switch (status) {
+        case "Ausstehend":
+        case "Antrag durch Sekretariat genehmigt; Rückmeldung durch Prüfungsausschuss ausstehend":
+          return "status-yellow";
+        case "Antrag genehmigt durch Prüfungsausschuss":
+          return "status-green";
+        case "Antrag abgelehnt durch Prüfungsausschuss":
+        case "Antrag durch Sekretariat abgelehnt":
+          return "status-red";
+        default:
+          return ""; // Fallback, falls der Status unbekannt ist
+      }
+    },
   },
 };
 </script>
-
-
 
 <style scoped>
 .dashboard {
@@ -276,4 +295,21 @@ button:hover {
 .logout-button:hover {
   background-color: darkred;
 }
+
+/* Neue Klassen für Statusfarben */
+.status-yellow {
+  color: #F4AA01; /* Gelb */
+  font-weight: bold;
+}
+
+.status-green {
+  color: #80ba24; /* Grün */
+  font-weight: bold;
+}
+
+.status-red {
+  color: #9E1B32; /* Rot */
+  font-weight: bold;
+}
 </style>
+
