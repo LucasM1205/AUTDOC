@@ -217,8 +217,6 @@ async def generate_pdf(
         raise HTTPException(status_code=500, detail=f"Fehler beim Erstellen des PDFs: {e}")
     finally:
         db.close()
-
-
     
 @app.post("/preview-pdf")
 async def preview_pdf(
@@ -829,3 +827,117 @@ async def update_antrag_pruefungsausschuss(
     except Exception as e:
         print(f"Fehler beim Aktualisieren des Antrags: {e}")
         raise HTTPException(status_code=500, detail="Fehler beim Aktualisieren des Antrags")
+
+from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
+from fastapi.responses import FileResponse
+from backend.models import JokerAntrag, Pruefungsausschuss
+from backend.database import get_db
+import os
+import json
+from PyPDF2 import PdfReader, PdfWriter
+from reportlab.pdfgen import canvas
+from io import BytesIO
+from datetime import datetime
+
+
+# Funktion zum Laden der neuen JSON-Konfiguration
+def load_field_config2():
+    config_path = "assets/JokerAntrag_final_field_config.json"
+    if not os.path.exists(config_path):
+        raise FileNotFoundError(f"Konfigurationsdatei nicht gefunden: {config_path}")
+    with open(config_path, "r") as file:
+        return json.load(file)
+
+@app.get("/api/antraege/generate-pdf/{antrag_id}")
+async def generate_pdf_for_sekretariat(
+    antrag_id: int,
+    db: Session = Depends(get_db)
+):
+    try:
+        print(f"DEBUG: PDF-Generierung gestartet für Antrag ID: {antrag_id}")
+        
+        # **1. JokerAntrag abrufen**
+        antrag = db.query(JokerAntrag).filter(JokerAntrag.id == antrag_id).first()
+        if not antrag:
+            print(f"DEBUG: Kein Antrag gefunden mit ID: {antrag_id}")
+            raise HTTPException(status_code=404, detail="Antrag nicht gefunden")
+        print(f"DEBUG: JokerAntrag gefunden: {antrag}")
+
+        # **2. Prüfungsausschussdaten abrufen**
+        pruefungsausschuss = db.query(Pruefungsausschuss).filter(
+            Pruefungsausschuss.joker_antrag_id == antrag_id
+        ).first()
+        if not pruefungsausschuss:
+            print(f"DEBUG: Keine Prüfungsausschuss-Daten gefunden für Antrag ID: {antrag_id}")
+            raise HTTPException(
+                status_code=404,
+                detail="Keine Daten des Prüfungsausschusses für diesen Antrag gefunden",
+            )
+        print(f"DEBUG: Pruefungsausschuss gefunden: {pruefungsausschuss}")
+
+        # **3. Pfadprüfung und Debugging**
+        input_pdf_path = "assets/JokerAntragTemplate.pdf"
+        output_pdf_path = f"joker_antrag_{antrag_id}.pdf"
+        print(f"DEBUG: Eingabe-PDF-Pfad: {input_pdf_path}")
+        if not os.path.exists(input_pdf_path):
+            print(f"DEBUG: PDF-Template nicht gefunden: {input_pdf_path}")
+            raise FileNotFoundError(f"PDF-Template nicht gefunden: {input_pdf_path}")
+
+        # **4. PDF generieren**
+        print("DEBUG: Beginne PDF-Generierung...")
+        reader = PdfReader(input_pdf_path)
+        writer = PdfWriter()
+        aktuelles_datum = datetime.now().strftime("%d.%m.%Y")
+
+        for page_num, page in enumerate(reader.pages):
+            packet = BytesIO()
+            overlay_canvas = canvas.Canvas(packet)
+
+            # Fülle nur die erste Seite aus
+            if page_num == 0:
+                field_positions = load_field_config2()  # Neue JSON-Config mit Positionen laden
+                print(f"DEBUG: Geladene Feldkonfiguration: {field_positions}")
+                for field, position in field_positions.items():
+                    if field == "unterschrift_pruefungsausschuss" and pruefungsausschuss.unterschrift:
+                        overlay_canvas.drawImage(
+                            pruefungsausschuss.unterschrift,
+                            position["x"],
+                            position["y"],
+                            width=position.get("width", 100),
+                            height=position.get("height", 50),
+                            mask="auto",
+                        )
+                        print(f"DEBUG: Unterschrift des Prüfungsausschusses hinzugefügt.")
+                    elif field == "datum":
+                        overlay_canvas.drawString(position["x"], position["y"], aktuelles_datum)
+                        print(f"DEBUG: Datum hinzugefügt: {aktuelles_datum}")
+                    else:
+                        value = getattr(antrag, field, None) or getattr(pruefungsausschuss, field, None)
+                        if value:
+                            overlay_canvas.drawString(position["x"], position["y"], str(value))
+                            print(f"DEBUG: Feld {field} mit Wert {value} hinzugefügt.")
+
+            overlay_canvas.save()
+            packet.seek(0)
+
+            overlay_pdf = PdfReader(packet)
+            overlay_page = overlay_pdf.pages[0]
+            page.merge_page(overlay_page)
+            writer.add_page(page)
+
+        # PDF speichern
+        with open(output_pdf_path, "wb") as output_file:
+            writer.write(output_file)
+
+        print(f"DEBUG: PDF erfolgreich generiert: {output_pdf_path}")
+
+        # **5. PDF zurückgeben**
+        return FileResponse(
+            output_pdf_path,
+            media_type="application/pdf",
+            filename=f"joker_antrag_{antrag_id}.pdf"
+        )
+    except Exception as e:
+        print(f"Fehler beim Generieren des PDFs: {e}")
+        raise HTTPException(status_code=500, detail=f"Fehler beim Generieren des PDFs: {e}")

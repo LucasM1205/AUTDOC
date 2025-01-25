@@ -97,7 +97,6 @@
   </div>
 </template>
 
-
 <script>
 import AntragBearbeiten from "./AntragBearbeiten.vue"; // Komponente für Sekretariat
 import AntragBearbeitenAusschuss from "./AntragBearbeitenAusschuss.vue"; // Neue Komponente für Prüfungsausschuss
@@ -185,9 +184,15 @@ export default {
           throw new Error("Fehler beim Laden der Anträge");
         }
 
-        this.antraege = await response.json();
+        const antraege = await response.json();
+        console.log("DEBUG: Geladene Anträge:", antraege);
+
+        // Überprüfe, ob die Daten `antrag_id` enthalten
+        this.antraege = antraege.map(antrag => ({
+          ...antrag,
+          antrag_id: antrag.antrag_id || antrag.id, // Sicherstellen, dass `antrag_id` verfügbar ist
+        }));
         this.sortAntraege(); // Sortiere die Anträge direkt nach dem Laden
-        console.log("DEBUG: Anträge geladen:", this.antraege);
       } catch (error) {
         console.error("Fehler beim Laden der Anträge:", error);
         alert("Fehler beim Abrufen der Anträge.");
@@ -248,15 +253,11 @@ export default {
     async generatePdfForSekretariat(antrag) {
       try {
         const token = localStorage.getItem("access_token");
-        const response = await fetch("http://127.0.0.1:8000/api/generate-pdf", {
-          method: "POST",
+        const response = await fetch(`http://127.0.0.1:8000/api/antraege/generate-pdf/${antrag.antrag_id}`, {
+          method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            antrag_id: antrag.antrag_id,
-          }),
         });
 
         if (!response.ok) {

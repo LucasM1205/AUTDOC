@@ -16,6 +16,7 @@ services:
       - ./logs:/app/logs
       - ./unterschriften:/app/unterschriften
       - ./assets:/app/assets
+      - ./uploads:/app/uploads 
 
   db:
     image: postgres:13
