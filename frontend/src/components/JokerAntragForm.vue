@@ -1,5 +1,6 @@
 <template>
-  <div class="form-container">
+  <div class="main-container" :class="{ 'preview-active': showPreview }">
+    <div class="form-section">
     <h1>Antrag - Joker</h1>
 
     <!-- Grunddaten Container mit Toggle -->
@@ -140,17 +141,12 @@
     </div>
 
     <!-- Vorschau-Modal -->
-    <div v-if="showPreview" class="preview-modal">
-      <div class="preview-container">
-        <button @click="closePreview">Schließen</button>
-        <iframe
-          id="pdf-preview"
-          :src="previewUrl"
-          frameborder="0"
-          style="width: 100%; height: 500px;"
-        ></iframe>
-      </div>
+    <!-- Statt modal -->
+    <div v-if="showPreview" class="pdf-container">
+      <button @click="closePreview" class="close-button">Schließen</button>
+      <iframe :src="previewUrl" width="100%" height="calc(100% - 50px)"></iframe>
     </div>
+   </div>
   </div>
 </template>
 
@@ -351,28 +347,84 @@ export default {
 </script>
 
 <style scoped>
+
+.main-container {
+  display: flex;
+  width: 100%;
+  padding: 40px;
+  gap: 60px;
+
+}
+
+.form-section {
+  width: 800px;
+  margin-left: 2000px;
+}
+
 .form-container {
   max-width: 800px;
   margin: auto;
   padding: 20px;
 }
 
+.pdf-container {
+  width: 1000px; /* Etwas schmaler für bessere Proportion */
+  height: 800px; /* Feste Höhe bis zur mittleren Markierung */
+  margin-right: 40px;
+  margin-top: 100px; /* Abstand zur oberen Markierung */
+  background-color: #fff;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+}
+
+.pdf-container iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.preview-modal {
+  display: none;
+}
+
+/* Anpassungen für den aktiven Vorschau-Zustand */
+.preview-active .form-section {
+  margin-left: 20px;
+}
+
+
 h1 {
   text-align: center;
   color: #80ba24;
 }
 
+.preview-active .pdf-container {
+  right: 0;
+}
+
 .grunddaten-container,
 .weiterfuehrende-daten-container {
-  margin-top: 20px;
+  margin-bottom: 20px;
   padding: 20px;
   border: 1px solid #ccc;
   border-radius: 8px;
   box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+  background-color: #fff;
 }
 
 .form-group {
   margin-bottom: 15px;
+}
+
+input[type='text'],
+select,
+input[type='file'] {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
 }
 
 label {
@@ -393,6 +445,7 @@ input[type='file'] {
 .button-group {
   display: flex;
   justify-content: space-between;
+  margin-top: 20px;
 }
 
 button {
@@ -414,25 +467,24 @@ button:disabled {
   cursor: not-allowed;
 }
 
-.preview-modal {
+.pdf-container {
+  flex: 0 0 45%;
+  height: calc(100vh - 40px);
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  right: 20px;
+  top: 20px;
+  background-color: white;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  overflow: auto;
 }
 
-.preview-container {
-  background: white;
-  padding: 20px;
-  border-radius: 10px;
-  max-width: 80%;
-  max-height: 80%;
-  overflow: auto;
+.form-section {
+  width: 800px;
+  margin: auto;
+  transition: transform 0.3s ease;
 }
 
 iframe {
