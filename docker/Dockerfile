@@ -7,8 +7,15 @@ WORKDIR /app
 # Kopiere die requirements.txt in das Arbeitsverzeichnis
 COPY ./requirements.txt /app/
 
+# Installiere die Systemabhängigkeiten für LDAP3
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libldap2-dev \
+    libsasl2-dev
+
 # Installiere die Python-Abhängigkeiten
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt \
+    && pip install ldap3  # LDAP3 explizit installieren
 
 # Kopiere den gesamten Backend-Code
 COPY ./backend /app/backend
@@ -28,5 +35,3 @@ EXPOSE 8000
 
 # Starte die FastAPI-App
 CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
-
-

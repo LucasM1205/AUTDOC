@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, UploadFile, Form, Depends, Header
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordBearer
 from PyPDF2 import PdfReader, PdfWriter
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
@@ -14,7 +15,9 @@ from backend.models import JokerAntrag, FachbereichSekretariat, Pruefungsausschu
 from backend.auth import authenticate_user, create_access_token
 from dotenv import load_dotenv
 from jose import jwt, JWTError
-from backend.auth import get_current_user
+from backend.auth import get_current_user, authenticate_ldap
+from ldap3 import Server, Connection, ALL, Tls
+import ssl
 
 
 # .env-Datei laden
@@ -23,6 +26,10 @@ load_dotenv()
 # Globale Konfiguration
 SECRET_KEY = os.getenv("SECRET_KEY", "fallback_key_fuer_dev")  # Fallback für lokale Entwicklung
 ALGORITHM = "HS256"
+
+# LDAP-Konfiguration (aus .env Datei oder Fallback)
+LDAP_SERVER = os.getenv("LDAP_SERVER", "ldap://ldap.fh-giessen.de")
+SEARCH_BASE = os.getenv("LDAP_SEARCH_BASE", "dc=fh-giessen-friedberg,dc=de")
 
 # FastAPI-Anwendung erstellen
 app = FastAPI()
@@ -43,6 +50,7 @@ def get_db():
         yield db
     finally:
         db.close()
+
 
 # Lade Konfiguration
 def load_field_config():
@@ -65,18 +73,38 @@ def create_access_token(data: dict):
 
 @app.post("/token")
 async def login_for_access_token(
-    email: str = Form(...),
+    username: str = Form(...),
     password: str = Form(...),
     db: Session = Depends(get_db)
 ):
-    user = authenticate_user(db, email, password)
-    if not user:
-        raise HTTPException(status_code=401, detail="Ungültige Anmeldedaten")
+    # **1. LDAP-Authentifizierung**
+    ldap_authenticated = authenticate_ldap(username, password)
+    if ldap_authenticated:
+        print(f"✅ DEBUG: Benutzer {username} erfolgreich per LDAP authentifiziert.")
 
-    access_token = create_access_token(
-        data={"sub": user.email, "role": user.rolle}
-    )
+        # Benutzer aus der Datenbank abrufen oder neu erstellen
+        user = db.query(Benutzer).filter(Benutzer.email == username).first()
+        if not user:
+            print(f"⚠️ DEBUG: Benutzer {username} nicht in der DB. Erstelle neuen Eintrag...")
+            new_user = Benutzer(
+                email=username,
+                rolle="Student",  # Standardrolle
+                passwort="LDAP_USER",  # Platzhalter
+            )
+            db.add(new_user)
+            db.commit()
+            db.refresh(new_user)
+            user = new_user
+    else:
+        print(f"⛔ DEBUG: LDAP-Authentifizierung für {username} fehlgeschlagen. Fallback auf lokale DB...")
+        user = authenticate_user(db, username, password)
+        if not user:
+            raise HTTPException(status_code=401, detail="❌ Ungültige Anmeldedaten")
+
+    # **2. JWT-Token generieren**
+    access_token = create_access_token(data={"sub": user.email, "role": user.rolle})
     return {"access_token": access_token, "token_type": "bearer"}
+
 
 @app.post("/generate-pdf")
 async def generate_pdf(
