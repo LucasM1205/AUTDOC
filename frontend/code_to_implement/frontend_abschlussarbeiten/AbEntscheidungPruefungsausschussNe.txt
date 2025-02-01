@@ -1,0 +1,189 @@
+<template>
+  <div class="form-container">
+    <h2>Entscheidung des Prüfungsausschusses</h2>
+    <form @submit.prevent="submitForm">
+      <!-- Entscheidung -->
+      <div class="form-group">
+        <label>Entscheidung:</label>
+        <div>
+          <label>
+            <input
+              type="checkbox"
+              v-model="formData.entscheidungen"
+              value="zugelassen"
+            />
+            Antrag auf Zulassung angenommen
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              v-model="formData.entscheidungen"
+              value="abgelehnt"
+              @change="toggleField('abgelehnt')"
+            />
+            Antrag auf Zulassung abgelehnt
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              v-model="formData.entscheidungen"
+              value="korrektur"
+              @change="toggleField('korrektur')"
+            />
+            Korrektur erforderlich
+          </label>
+        </div>
+      </div>
+
+      <!-- Dynamisches Begründungsfeld -->
+      <div v-if="showBegruendungField" class="form-group">
+        <label for="begruendung">Begründung:</label>
+        <textarea
+          id="begruendung"
+          v-model="formData.begruendung"
+          placeholder="Geben Sie die Begründung ein"
+        ></textarea>
+      </div>
+
+      <!-- Dynamisches Weitere Informationen-Feld -->
+      <div v-if="showKorrekturField" class="form-group">
+        <label for="weitereInfos">Weitere Informationen:</label>
+        <textarea
+          id="weitereInfos"
+          v-model="formData.weitereInfos"
+          placeholder="Geben Sie weitere Informationen ein"
+        ></textarea>
+      </div>
+
+      <!-- Unterschrift -->
+      <div class="form-group">
+        <label for="unterschriftAusschuss">Unterschrift Ausschussvorsitzende(r):</label>
+        <input
+          type="file"
+          id="unterschriftAusschuss"
+          @change="handleFileUpload"
+        />
+      </div>
+
+      <!-- Buttons -->
+      <div class="button-group">
+        <button type="button" @click="goBack">Zurück</button>
+        <button type="button" @click="preview" class="preview-button">Vorschau</button>
+        <button type="submit">Speichern</button>
+      </div>
+    </form>
+  </div>
+</template>
+
+<script>
+export default {
+  name: "AbEntscheidungPruefungsausschuss",
+  data() {
+    return {
+      formData: {
+        entscheidungen: [],
+        begruendung: "",
+        weitereInfos: "",
+        unterschrift: null,
+      },
+      showBegruendungField: false,
+      showKorrekturField: false,
+    };
+  },
+  methods: {
+    toggleField(type) {
+      if (type === "abgelehnt") {
+        this.showBegruendungField = this.formData.entscheidungen.includes(
+          "abgelehnt"
+        );
+      }
+      if (type === "korrektur") {
+        this.showKorrekturField = this.formData.entscheidungen.includes(
+          "korrektur"
+        );
+      }
+    },
+    handleFileUpload(event) {
+      this.formData.unterschrift = event.target.files[0];
+    },
+    submitForm() {
+      console.log("Formular-Daten:", this.formData);
+      alert("Das Formular wurde erfolgreich gespeichert!");
+    },
+    goBack() {
+      alert("Zurück zur vorherigen Seite.");
+    },
+    preview() {
+      alert("Vorschau anzeigen.");
+    },
+  },
+};
+</script>
+
+<style scoped>
+.form-container {
+  max-width: 800px;
+  margin: auto;
+  padding: 20px;
+  background-color: white;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+h2 {
+  text-align: center;
+  color: #80ba24; /* THM-Farbe */
+  margin-bottom: 20px;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+textarea,
+input[type="text"],
+input[type="file"] {
+  width: 100%;
+  padding: 8px;
+  margin-top: 5px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+textarea {
+  resize: vertical;
+  height: 80px;
+}
+
+.button-group {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+}
+
+button {
+  padding: 10px 20px;
+  background-color: #80ba24;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #6da22d;
+}
+
+.preview-button {
+  margin: 0 auto;
+}
+</style>

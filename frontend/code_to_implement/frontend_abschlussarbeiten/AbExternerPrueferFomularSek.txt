@@ -1,0 +1,147 @@
+<template>
+  <div class="form-container">
+    <h2>Sekretariat</h2>
+    <form @submit.prevent="submitForm">
+      <!-- Externer Prüfer -->
+      <div class="form-group">
+        <label>Externer Prüfer(in):</label>
+        <label>
+          <input
+            type="checkbox"
+            v-model="formData.externerPruefer"
+            value="zugelassen"
+          />
+          Zugelassen
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            v-model="formData.externerPruefer"
+            value="nicht zugelassen"
+            @change="toggleField('nichtZugelassen')"
+          />
+          Nicht zugelassen
+        </label>
+      </div>
+
+      <!-- Dynamisches Feld für Nicht zugelassen -->
+      <div v-if="showNichtZugelassenField" class="form-group">
+        <label for="nichtZugelassenBegruendung">Grund für Nichtzulassung:</label>
+        <textarea
+          id="nichtZugelassenBegruendung"
+          v-model="formData.nichtZugelassenBegruendung"
+          placeholder="Bitte Grund für Nichtzulassung eingeben"
+        ></textarea>
+      </div>
+
+      <!-- Buttons -->
+      <div class="button-group">
+        <button type="button" @click="goBack">Zurück</button>
+        <button type="button" @click="previewForm" class="preview-button">Vorschau</button>
+        <button type="submit">Speichern</button>
+      </div>
+    </form>
+  </div>
+</template>
+
+<script>
+export default {
+  name: "ExternerPrueferFormular",
+  data() {
+    return {
+      formData: {
+        externerPruefer: [],
+        nichtZugelassenBegruendung: "",
+      },
+      showNichtZugelassenField: false,
+    };
+  },
+  methods: {
+    toggleField(type) {
+      if (type === "nichtZugelassen") {
+        this.showNichtZugelassenField = this.formData.externerPruefer.includes(
+          "nicht zugelassen"
+        );
+      }
+    },
+    submitForm() {
+      console.log("Formular-Daten:", this.formData);
+      alert("Das Formular wurde erfolgreich gespeichert!");
+    },
+    goBack() {
+      alert("Zurück zur vorherigen Seite.");
+    },
+    previewForm() {
+      alert("Vorschau anzeigen:\n" + JSON.stringify(this.formData, null, 2));
+    },
+  },
+};
+</script>
+
+<style scoped>
+.form-container {
+  max-width: 800px;
+  margin: auto;
+  padding: 20px;
+  background-color: white;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+h2 {
+  text-align: center;
+  color: #80ba24; /* THM-Farbe */
+  margin-bottom: 20px;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+textarea,
+input[type="text"],
+input[type="file"] {
+  width: 100%;
+  padding: 8px;
+  margin-top: 5px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+textarea {
+  resize: vertical;
+  height: 80px;
+}
+
+.button-group {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+}
+
+button {
+  padding: 10px 20px;
+  background-color: #80ba24;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+button.preview-button {
+  margin: 0 auto;
+}
+
+button:hover {
+  background-color: #6da22d;
+}
+</style>

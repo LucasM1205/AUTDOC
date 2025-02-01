@@ -1,0 +1,321 @@
+<template>
+  <div class="page-container">
+    <h2 class="page-title">Persönliche Angaben und Prüfungsdetails</h2>
+    <form @submit.prevent="submitForm">
+      <!-- Persönliche Angaben -->
+      <div class="section-container personal-info">
+        <h3>Persönliche Angaben</h3>
+        <div class="form-group">
+          <label>
+            <input type="checkbox" v-model="autoFill" @change="toggleAutoFill" />
+            Automatisch ausfüllen
+          </label>
+        </div>
+
+        <div class="form-group">
+          <label for="vorname">Vorname:</label>
+          <input
+            type="text"
+            id="vorname"
+            v-model="formData.vorname"
+            placeholder="Vorname eingeben"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="nachname">Nachname:</label>
+          <input
+            type="text"
+            id="nachname"
+            v-model="formData.nachname"
+            placeholder="Nachname eingeben"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="strasse">Straße:</label>
+          <input
+            type="text"
+            id="strasse"
+            v-model="formData.strasse"
+            placeholder="Straße eingeben"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="plzOrt">PLZ/Ort:</label>
+          <input
+            type="text"
+            id="plzOrt"
+            v-model="formData.plzOrt"
+            placeholder="PLZ/Ort eingeben"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="matrikelnr">Matrikelnummer:</label>
+          <input
+            type="text"
+            id="matrikelnr"
+            v-model="formData.matrikelnummer"
+            placeholder="Matrikelnummer eingeben"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="email">THM-E-Mail-Adresse:</label>
+          <input
+            type="email"
+            id="email"
+            v-model="formData.email"
+            placeholder="THM-E-Mail-Adresse eingeben"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label>Studienabschluss:</label>
+          <label>
+            <input
+              type="checkbox"
+              v-model="formData.studienabschluss"
+              value="Bachelor"
+            />
+            Bachelor
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              v-model="formData.studienabschluss"
+              value="Master"
+            />
+            Master
+          </label>
+        </div>
+
+        <div class="form-group">
+          <label for="studentUnterschrift">Unterschrift Studierende(r):</label>
+          <input
+            type="file"
+            id="studentUnterschrift"
+            @change="handleFileUpload('studentUnterschrift')"
+          />
+        </div>
+      </div>
+
+      <!-- Prüfungsdetails -->
+      <div class="section-container exam-details">
+        <h3>Prüfungsdetails</h3>
+        <div class="form-group">
+          <label for="arbeitsthema">Thema der Arbeit:</label>
+          <textarea
+            id="arbeitsthema"
+            v-model="formData.thema"
+            placeholder="Thema der Arbeit eingeben"
+            required
+          ></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="pruefer1">1. Prüfer(in) (THM):</label>
+          <input
+            type="text"
+            id="pruefer1"
+            v-model="formData.pruefer1"
+            placeholder="Name des Prüfers"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="pruefer2">2. Prüfer(in) (THM oder Institution):</label>
+          <input
+            type="text"
+            id="pruefer2"
+            v-model="formData.pruefer2"
+            placeholder="Name des Prüfers"
+          />
+        </div>
+
+        <!-- Neue Felder für E-Mail-Adressen der Prüfer -->
+      
+
+        <div class="form-group">
+          <label for="emailPruefer2">E-Mail-Adresse 2. Prüfer(in):</label>
+          <input
+            type="email"
+            id="emailPruefer2"
+            v-model="formData.emailPruefer2"
+            placeholder="E-Mail-Adresse des 2. Prüfers eingeben"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="starttermin">Gewünschter Starttermin der Abschlussarbeit:</label>
+          <input
+            type="date"
+            id="starttermin"
+            v-model="formData.starttermin"
+            required
+          />
+        </div>
+
+        <!-- Antrag Externer Prüfer -->
+        <div class="form-group">
+          <label for="antragExternerPruefer">Antrag Externer Prüfer hochladen:</label>
+          <input
+            type="file"
+            id="antragExternerPruefer"
+            @change="handleFileUpload('antragExternerPruefer')"
+          />
+        </div>
+      </div>
+
+      <!-- Buttons -->
+      <div class="button-group">
+        <button type="button" @click="goBack">Zurück</button>
+        <button type="button" @click="preview">Vorschau</button>
+        <button type="submit">Speichern</button>
+      </div>
+    </form>
+  </div>
+</template>
+
+<script>
+export default {
+  name: "PersoenlicheUndPruefungsdetails",
+  data() {
+    return {
+      autoFill: false,
+      formData: {
+        vorname: "",
+        nachname: "",
+        strasse: "",
+        plzOrt: "",
+        matrikelnummer: "",
+        email: "",
+        studienabschluss: [],
+        studentUnterschrift: null,
+        thema: "",
+        pruefer1: "",
+        pruefer2: "",
+        emailPruefer1: "", // Neu hinzugefügt
+        emailPruefer2: "", // Neu hinzugefügt
+        starttermin: "",
+        antragExternerPruefer: null,
+      },
+    };
+  },
+  methods: {
+    toggleAutoFill() {
+      if (this.autoFill) {
+        this.formData = {
+          ...this.formData,
+          vorname: "",
+          nachname: "",
+          strasse: "",
+          plzOrt: "",
+          matrikelnummer: "",
+          email: "",
+          studienabschluss: [],
+        };
+      }
+    },
+    handleFileUpload(type) {
+      const fileInput = event.target;
+      this.formData[type] = fileInput.files[0];
+    },
+    submitForm() {
+      console.log("Formular gespeichert:", this.formData);
+      alert("Das Formular wurde gespeichert!");
+    },
+    goBack() {
+      alert("Zurück zur vorherigen Seite.");
+    },
+    preview() {
+      alert("Vorschau anzeigen.");
+    },
+  },
+};
+</script>
+
+<style scoped>
+.page-container {
+  background-color: white;
+  padding: 20px;
+}
+
+.page-title {
+  text-align: center;
+  font-size: 24px;
+  color: #80ba24;
+  margin-bottom: 20px;
+}
+
+.section-container {
+  max-width: 900px;
+  margin: 20px auto;
+  padding: 20px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background-color: white;
+}
+
+h3 {
+  color: #333;
+  text-align: left;
+  font-size: 20px;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+label {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+textarea,
+input[type="text"],
+input[type="email"],
+input[type="date"],
+input[type="file"] {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+textarea {
+  height: 80px;
+  resize: vertical;
+}
+
+.button-group {
+  display: flex;
+  justify-content: space-evenly;
+  margin-top: 20px;
+}
+
+button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  background-color: #80ba24;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #6da22d;
+}
+</style>

@@ -1,0 +1,232 @@
+<template>
+  <div class="form-container">
+    <h1>Nachweis der BPP-Referate und Veranstaltungen</h1>
+
+    <!-- Grunddaten Container -->
+    <div class="grunddaten-container white-box">
+      <form>
+        <div class="form-group">
+          <div class="label-with-checkbox">
+            <label for="vorname">Name, Vorname</label>
+            <input type="checkbox" v-model="grunddaten.autofill" />
+            <span>Automatisch ausfüllen</span>
+          </div>
+          <input type="text" id="vorname" v-model="grunddaten.name" placeholder="Name, Vorname eingeben" />
+        </div>
+
+        <div class="form-group">
+          <label for="matrikelnummer">Matrikelnummer</label>
+          <input
+            type="text"
+            id="matrikelnummer"
+            v-model="grunddaten.matrikelnummer"
+            placeholder="Matrikelnummer eingeben"
+          />
+        </div>
+      </form>
+    </div>
+
+    <!-- Veranstaltungen Container -->
+    <div class="veranstaltungen-container white-box">
+      <div v-for="(veranstaltung, index) in informationsveranstaltungen" :key="index" class="veranstaltung-box">
+        <div class="form-group">
+          <label>Informationsveranstaltung {{ index + 1 }}</label>
+          <input type="date" v-model="veranstaltung.datum" />
+          <!-- Unterschriftsfeld deaktiviert -->
+          <input type="file" disabled />
+        </div>
+      </div>
+    </div>
+
+    <!-- Referate Container -->
+    <div class="referate-container white-box">
+      <div v-for="(referat, index) in referate" :key="index" class="referat-box">
+        <div class="form-group">
+          <label>Referat {{ index + 1 }}</label>
+          <!-- Diese Felder sind weiterhin bearbeitbar -->
+          <input type="text" v-model="referat.thema" placeholder="Thema eingeben" />
+          <input type="text" v-model="referat.referent" placeholder="Referent/-in eingeben" />
+          <input type="date" v-model="referat.datum" />
+          <!-- Unterschriftsfeld deaktiviert -->
+          <input type="file" disabled />
+        </div>
+      </div>
+    </div>
+
+    <!-- Button-Gruppe -->
+    <div class="button-group">
+      <button type="button" @click="addReferat">+ Referat</button>
+      <button type="button" @click="previewPDF">Vorschau</button>
+      <button type="button" @click="saveForm">Speichern</button>
+    </div>
+
+    <!-- Vorschau-Modal -->
+    <div v-if="showPreview" class="preview-modal">
+      <div class="preview-container">
+        <button @click="closePreview">Schließen</button>
+        <iframe :src="previewUrl" frameborder="0" style="width: 100%; height: 500px;"></iframe>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+export default {
+  data() {
+    return {
+      grunddaten: {
+        name: '',
+        matrikelnummer: '',
+        autofill: false,
+      },
+      informationsveranstaltungen: [
+        { datum: '', unterschrift: null },
+        { datum: '', unterschrift: null },
+      ],
+      referate: Array.from({ length: 7 }, () => ({ thema: '', referent: '', datum: '', unterschrift: null })),
+      showPreview: false,
+      previewUrl: '',
+    };
+  },
+  methods: {
+    addReferat() {
+      this.referate.push({ thema: '', referent: '', datum: '', unterschrift: null });
+    },
+    async previewPDF() {
+      try {
+        const formData = new FormData();
+        formData.append('name', this.grunddaten.name);
+        formData.append('matrikelnummer', this.grunddaten.matrikelnummer);
+        formData.append('informationsveranstaltungen', JSON.stringify(this.informationsveranstaltungen));
+        formData.append('referate', JSON.stringify(this.referate));
+
+        // Append files for unterschriften (falls vorhanden)
+        this.informationsveranstaltungen.forEach((veranstaltung, index) => {
+          if (veranstaltung.unterschrift) {
+            formData.append(`informationsveranstaltungen_unterschrift_${index}`, veranstaltung.unterschrift);
+          }
+        });
+        this.referate.forEach((referat, index) => {
+          if (referat.unterschrift) {
+            formData.append(`referate_unterschrift_${index}`, referat.unterschrift);
+          }
+        });
+
+        const response = await fetch('http://127.0.0.1:8000/preview-nachweis', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) throw new Error('Fehler bei der Vorschau');
+
+        const blob = await response.blob();
+        this.previewUrl = URL.createObjectURL(blob);
+        this.showPreview = true;
+      } catch (error) {
+        console.error('Fehler bei der Vorschau:', error);
+      }
+    },
+    saveForm() {
+      console.log('Formular gespeichert:', this.grunddaten, this.informationsveranstaltungen, this.referate);
+      alert('Formular gespeichert!');
+    },
+    closePreview() {
+      this.showPreview = false;
+      this.previewUrl = '';
+    },
+  },
+};
+</script>
+
+<style scoped>
+.form-container {
+  max-width: 800px;
+  margin: auto;
+  padding: 20px;
+}
+
+h1 {
+  text-align: center;
+  color: #80ba24;
+}
+
+.white-box {
+  background-color: white;
+  border: 1px solid #ccc;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+label {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.label-with-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+input[type='text'],
+input[type='date'],
+input[type='file'] {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+input[type='file']:disabled {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
+}
+
+.button-group {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+
+button {
+  padding: 10px 15px;
+  background-color: #80ba24;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #5e891b;
+}
+
+.preview-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.preview-container {
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  max-width: 80%;
+  max-height: 80%;
+  overflow: auto;
+}
+</style>

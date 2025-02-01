@@ -1,0 +1,150 @@
+<template>
+  <div class="form-container">
+    <h2>Sekretariat</h2>
+    <form @submit.prevent="submitForm">
+      <!-- Prüfungsordnung -->
+      <div class="form-group">
+        <label>Prüfungsordnung:</label>
+        <label>
+          <input
+            type="checkbox"
+            v-model="formData.pruefungsordnung"
+            value="erfüllt"
+            @change="toggleField('erfüllt')"
+          />
+          Erfüllt
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            v-model="formData.pruefungsordnung"
+            value="nicht erfüllt"
+            @change="toggleField('nichtErfüllt')"
+          />
+          Nicht erfüllt
+        </label>
+      </div>
+
+      <!-- Dynamisches Feld für Nicht erfüllt -->
+      <div v-if="showNichtErfuelltField" class="form-group">
+        <label for="nichtErfuelltHinweis">Grund oder Hinweis:</label>
+        <textarea
+          id="nichtErfuelltHinweis"
+          v-model="formData.nichtErfuelltHinweis"
+          placeholder="Bitte Grund oder Hinweis eingeben"
+        ></textarea>
+      </div>
+
+      <!-- Buttons -->
+      <div class="button-group">
+        <button type="button" @click="goBack">Zurück</button>
+        <button type="button" @click="previewForm" class="preview-button">Vorschau</button>
+        <button type="submit">Speichern</button>
+      </div>
+    </form>
+  </div>
+</template>
+
+<script>
+export default {
+  name: "PruefungsordnungFormular",
+  data() {
+    return {
+      formData: {
+        pruefungsordnung: [],
+        nichtErfuelltHinweis: "",
+      },
+      showNichtErfuelltField: false,
+    };
+  },
+  methods: {
+    toggleField(type) {
+      if (type === "nichtErfüllt") {
+        this.showNichtErfuelltField = this.formData.pruefungsordnung.includes(
+          "nicht erfüllt"
+        );
+      } else {
+        this.showNichtErfuelltField = false;
+      }
+    },
+    submitForm() {
+      console.log("Formular-Daten:", this.formData);
+      alert("Das Formular wurde erfolgreich gespeichert!");
+    },
+    goBack() {
+      alert("Zurück zur vorherigen Seite.");
+    },
+    previewForm() {
+      alert("Vorschau anzeigen:\n" + JSON.stringify(this.formData, null, 2));
+    },
+  },
+};
+</script>
+
+<style scoped>
+.form-container {
+  max-width: 800px;
+  margin: auto;
+  padding: 20px;
+  background-color: white;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+h2 {
+  text-align: center;
+  color: #80ba24; /* THM-Farbe */
+  margin-bottom: 20px;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+textarea,
+input[type="text"],
+input[type="file"] {
+  width: 100%;
+  padding: 8px;
+  margin-top: 5px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+textarea {
+  resize: vertical;
+  height: 80px;
+}
+
+.button-group {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+}
+
+button {
+  padding: 10px 20px;
+  background-color: #80ba24;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+button.preview-button {
+  margin: 0 auto;
+}
+
+button:hover {
+  background-color: #6da22d;
+}
+</style>

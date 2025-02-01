@@ -71,6 +71,52 @@ def authenticate_ldap(username: str, password: str) -> bool:
         print(f"⚠️ DEBUG: Fehler bei der LDAP-Authentifizierung für Benutzer {username}: {e}")
         return False
 
+def get_ldap_user_info(username: str) -> dict:
+    """
+    Ruft Benutzerinformationen aus LDAP ab, ohne ein Passwort oder Bind-User.
+    """
+    try:
+        # LDAP-Server und Suchbasis
+        ldap_server = os.getenv("LDAP_SERVER", "ldap://ldap.fh-giessen.de")
+        search_base = os.getenv("SEARCH_BASE", "ou=People,ou=MND,ou=Friedberg,dc=fh-giessen-friedberg,dc=de")
+        tls_config = Tls(validate=ssl.CERT_NONE)
+
+        # Debugging
+        print(f"DEBUG: Verbinde zu LDAP-Server: {ldap_server}")
+        print(f"DEBUG: Suche nach Benutzer: uid={username},{search_base}")
+
+        # LDAP-Server konfigurieren
+        server = Server(ldap_server, get_info=ALL, tls=tls_config)
+
+        # Verbindung OHNE Authentifizierung herstellen
+        conn = Connection(server, auto_bind=True)
+
+        # Suche nach Benutzerinformationen im LDAP
+        conn.search(
+            search_base=search_base,
+            search_filter=f"(uid={username})",
+            attributes=["cn", "sn", "givenName", "uid", "ou"]
+        )
+
+        if conn.entries:
+            entry = conn.entries[0]
+            user_info = {
+                "cn": entry.cn.value,
+                "sn": entry.sn.value,
+                "givenName": entry.givenName.value,
+                "uid": entry.uid.value,
+                "ou": entry.ou.value if isinstance(entry.ou.value, str) else entry.ou.value[1]  # Falls Array, den zweiten Wert nehmen
+            }
+            print(f"✅ DEBUG: LDAP-User-Info: {user_info}")
+            return user_info
+        else:
+            print(f"⚠️ DEBUG: Keine Daten für Benutzer {username} gefunden.")
+            return {}
+
+    except Exception as e:
+        print(f"⚠️ DEBUG: Fehler beim Abrufen von LDAP-Informationen: {e}")
+        return {}
+
 def create_access_token(data: dict, expires_delta: timedelta = None):
     to_encode = data.copy()
     expire = datetime.now() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))

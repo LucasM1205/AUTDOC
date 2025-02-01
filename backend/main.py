@@ -15,7 +15,7 @@ from backend.models import JokerAntrag, FachbereichSekretariat, Pruefungsausschu
 from backend.auth import authenticate_user, create_access_token
 from dotenv import load_dotenv
 from jose import jwt, JWTError
-from backend.auth import get_current_user, authenticate_ldap
+from backend.auth import get_current_user, authenticate_ldap, get_ldap_user_info
 from ldap3 import Server, Connection, ALL, Tls
 import ssl
 
@@ -82,7 +82,7 @@ async def login_for_access_token(
     if ldap_authenticated:
         print(f"✅ DEBUG: Benutzer {username} erfolgreich per LDAP authentifiziert.")
 
-        # Benutzer aus der Datenbank abrufen oder neu erstellen
+        # **Benutzer aus der Datenbank abrufen oder neu erstellen**
         user = db.query(Benutzer).filter(Benutzer.email == username).first()
         if not user:
             print(f"⚠️ DEBUG: Benutzer {username} nicht in der DB. Erstelle neuen Eintrag...")
@@ -95,13 +95,43 @@ async def login_for_access_token(
             db.commit()
             db.refresh(new_user)
             user = new_user
+        
+        # **2. LDAP-Informationen abrufen**
+        ldap_user_info = get_ldap_user_info(username)
+        if not ldap_user_info:
+            raise HTTPException(status_code=404, detail="LDAP-Daten nicht gefunden.")
+
+        matrikelnummer = ldap_user_info.get("uid", "Unbekannt")  # Falls kein Wert, dann 'Unbekannt'
+        fachbereich = ldap_user_info.get("ou")[1].upper() if ldap_user_info.get("ou") else "Unbekannt"
+        
+        # **3. Prüfen, ob Student bereits in der DB existiert**
+        student = db.query(Student).filter(Student.matrikelnummer == matrikelnummer).first()
+
+        if not student:
+            print(f"⚠️ DEBUG: Student mit Matrikelnummer {matrikelnummer} nicht in der DB. Hinzufügen...")
+
+            # Falls `matrikelnummer` bereits als "Unbekannt" existiert, keinen neuen Eintrag erstellen
+            if db.query(Student).filter(Student.matrikelnummer == "Unbekannt").first():
+                print("⚠️ DEBUG: Eintrag mit Matrikelnummer 'Unbekannt' existiert bereits. Kein neuer Student wird hinzugefügt.")
+            else:
+                new_student = Student(
+                    name=ldap_user_info.get("sn", "Unbekannt"),
+                    vorname=ldap_user_info.get("givenName", "Unbekannt"),
+                    matrikelnummer=matrikelnummer,
+                    fachbereich=fachbereich,
+                    studiengang="Unbekannt",
+                )
+                db.add(new_student)
+                db.commit()
+                db.refresh(new_student)
+
     else:
         print(f"⛔ DEBUG: LDAP-Authentifizierung für {username} fehlgeschlagen. Fallback auf lokale DB...")
         user = authenticate_user(db, username, password)
         if not user:
             raise HTTPException(status_code=401, detail="❌ Ungültige Anmeldedaten")
 
-    # **2. JWT-Token generieren**
+    # **4. JWT-Token generieren**
     access_token = create_access_token(data={"sub": user.email, "role": user.rolle})
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -856,6 +886,41 @@ async def update_antrag_pruefungsausschuss(
         print(f"Fehler beim Aktualisieren des Antrags: {e}")
         raise HTTPException(status_code=500, detail="Fehler beim Aktualisieren des Antrags")
 
+@app.get("/api/grunddaten", response_model=dict)
+async def get_grunddaten(
+    current_user: dict = Depends(get_current_user),  # Belässt den bestehenden Mechanismus
+    db: Session = Depends(get_db)
+):
+    """
+    Gibt die Grunddaten (Name, Vorname, Matrikelnummer, Fachbereich) zurück.
+    Daten werden aus LDAP und der Datenbank kombiniert.
+    """
+    try:
+        username = current_user["name"]
+
+        # Daten aus LDAP abrufen
+        ldap_user_info = get_ldap_user_info(username)
+        if not ldap_user_info:
+            raise HTTPException(status_code=404, detail="LDAP-Daten nicht gefunden.")
+
+        # Daten aus der Studenten-Tabelle abrufen
+        student = db.query(Student).filter(Student.matrikelnummer == ldap_user_info.get("uid")).first()
+
+        # Kombinierte Daten zurückgeben
+        grunddaten = {
+            "vorname": ldap_user_info.get("givenName"),
+            "nachname": ldap_user_info.get("sn"),
+            "matrikelnummer": student.matrikelnummer if student else "Unbekannt",
+            "fachbereich": student.fachbereich if student else ldap_user_info.get("ou").upper(),
+            "bachelorstudiengang": student.studiengang if student else "Unbekannt",
+        }
+        return grunddaten
+
+    except Exception as e:
+        print(f"⚠️ DEBUG: Fehler beim Abrufen der Grunddaten: {e}")
+        raise HTTPException(status_code=500, detail="Fehler beim Abrufen der Grunddaten.")
+
+
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 from fastapi.responses import FileResponse
@@ -969,3 +1034,4 @@ async def generate_pdf_for_sekretariat(
     except Exception as e:
         print(f"Fehler beim Generieren des PDFs: {e}")
         raise HTTPException(status_code=500, detail=f"Fehler beim Generieren des PDFs: {e}")
+
